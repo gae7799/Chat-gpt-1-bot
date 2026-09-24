@@ -1,0 +1,53 @@
+name: Verifica e pubblica aggiornamento
+on:
+  push:
+    tags: ['v*']
+    branches: [main]
+    paths: ['app/VERSION.txt', '.github/workflows/release.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test senza credenziali e senza servizi remoti
+        env:
+          PYTHONPATH: app
+        run: python -m unittest discover -s tests -v
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Costruisci e verifica la versione
+        run: |
+          python tools/build_release.py
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          version=Path('app/VERSION.txt').read_text().strip()
+          if os.environ['GITHUB_REF'].startswith('refs/tags/'):
+              assert os.environ['GITHUB_REF_NAME']=='v'+version, 'Tag e VERSION non coincidono'
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('RELEASE_VERSION='+version+'\n')
+          PY
+      - name: Pubblica una nuova release completa
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$RELEASE_VERSION" dist/manifest.json dist/bot-foto-update.zip "dist/Aggiornamento-Automatico-$RELEASE_VERSION.zip" --target "$GITHUB_SHA" --title "Bot-Foto $RELEASE_VERSION" --notes "Aggiornamento verificato su Windows e Linux. I dati personali restano sul PC."

@@ -1,0 +1,45 @@
+BEYOND THE NEXT — AGGIORNAMENTI AUTOMATICI 2.0.0
+
+INSTALLAZIONE UNA SOLA VOLTA
+1. Sospendi e chiudi il bot. Chiudi anche la finestra AVVIA.bat.
+2. Estrai lo ZIP e avvia INSTALLA_AGGIORNAMENTO.bat.
+3. Seleziona la cartella Bot-Foto con AVVIA.bat, FOTO e DATI.
+4. Attendi la conferma e riapri il tuo AVVIA.bat.
+5. Verifica Versione 2.0.0 e riattiva la gestione quando vuoi riprenderla.
+
+COME FUNZIONA
+A ogni avvio con AVVIA.bat, prima del bot, il programma controlla la più
+recente release stabile della repository gae7799/Chat-gpt-1-bot.
+Se contiene una versione più nuova compatibile, scarica il pacchetto,
+verifica SHA-256 e la lista dei file e crea un backup del codice.
+Sostituisce solo i file del programma e apre il bot. Se la nuova finestra
+non conferma l'avvio entro 40 secondi, ripristina il codice precedente.
+Un'interruzione durante l'installazione viene recuperata al successivo avvio.
+Una versione che fallisce viene esclusa dai tentativi futuri su quel PC;
+una successiva versione più nuova può comunque essere installata.
+
+Il controllo avviene all'avvio, non mentre sono in corso analisi o vendite.
+Se manca internet, GitHub non risponde o non ci sono release compatibili,
+parte la versione già installata. Il download può richiedere alcuni secondi.
+Avviando direttamente bot.py, gli aggiornamenti non vengono controllati.
+
+FOTO, DATI e le credenziali Windows restano sul PC. Le foto e i database
+non vengono caricati su GitHub. Il rollback riguarda il codice, non annulla
+azioni già compiute sul negozio né ripristina il database personale.
+Il controllo dell'avvio non garantisce ogni funzione dopo l'apertura.
+
+DOVE VEDERE L'ESITO
+Premi Aggiornamenti nella finestra del bot.
+Registro: DATI/AGGIORNAMENTI/storico.txt
+Backup: DATI/AGGIORNAMENTI/backup-...
+
+PUBBLICAZIONE DELLE VERSIONI
+Per distribuire un aggiornamento va pubblicata una release GitHub con
+manifest.json e bot-foto-update.zip prodotti dalla procedura del progetto.
+Un semplice cambiamento dei file su GitHub non viene installato sui PC.
+La prima pubblicazione deve essere completata prima che il canale sia attivo.
+La repository è pubblica: il bot non richiede password o token GitHub.
+
+Il piccolo programma di avvio rimane stabile e non si sostituisce da solo.
+Modifiche al protocollo di aggiornamento richiedono un nuovo installer.
+Il pacchetto include le correzioni e le funzioni della versione 1.9.1.
