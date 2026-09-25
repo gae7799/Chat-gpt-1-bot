@@ -175,13 +175,25 @@ def main():
     from registro import record, heartbeat, observe, save_texts, logical_review
     db_path = ROOT / 'DATI' / 'catalogo.sqlite'
     last_logged = {}
+    actors = {
+        'Sessione': 'Supervisore Bot-Foto',
+        'Catalogo foto': 'Scanner FOTO',
+        'Errore catalogo': 'Scanner FOTO',
+        'Analisi AI': 'Direttore AI e specialisti',
+        'Errore AI': 'Direttore AI',
+        'Limite AI': 'Gestore quota AI',
+        'Calendario': 'Direttore autonomo',
+        'Errore pubblicazione': 'Direttore autonomo',
+        'Rapporto giornaliero': 'Coordinatore rapporto giornaliero',
+        'Analisi giornaliera': 'Coordinatore rapporto giornaliero',
+    }
     def journal(area, outcome, details=''):
         stamp = time.monotonic()
         key = (area, outcome)
         if (area.startswith('Errore') or area == 'Limite AI') and stamp - last_logged.get(key, -300) < 300:
             return
         try:
-            record(db_path, area, 'Bot', outcome, details)
+            record(db_path, area, 'Bot', outcome, details, actor=actors.get(area, 'Supervisore Bot-Foto'))
             last_logged[key] = stamp
         except (sqlite3.Error, OSError):
             results.put(('error', 'Registro attività non disponibile: controlla accesso e spazio in DATI.'))

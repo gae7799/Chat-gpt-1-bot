@@ -28,7 +28,7 @@ class RegistryCadenceTests(unittest.TestCase):
                 self.assertEqual(len(notes), 5)
                 self.assertIn('Controllare la proposta organica', notes[1][0])
                 self.assertIn('Valutazione: Composizione adatta alla linea', notes[1][0])
-                self.assertIn('Catalogo foto / Bot: 1 foto registrata', notes[1][0])
+                self.assertIn('Origine non registrata — Catalogo foto / Bot: 1 foto registrata', notes[1][0])
                 self.assertIn('non verifica Fourthwall', notes[1][0])
                 for _ in range(46):
                     db.execute("INSERT INTO events(at,area,subject,outcome,details) VALUES (?,?,?,?,?)",

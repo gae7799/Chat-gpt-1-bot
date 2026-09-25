@@ -224,7 +224,8 @@ def run_daily(path, moment=None, shop_fn=None, market_fn=None, editorial_fn=None
         return 'errore'
     export_report(path, day)
     from registro import record
-    record(path,'Analisi giornaliera',day+' / '+stage,'Fase completata',json.dumps(result,ensure_ascii=False))
+    record(path,'Analisi giornaliera',day+' / '+stage,'Fase completata',
+           json.dumps(result,ensure_ascii=False), actor='Agente giornaliero: '+stage)
     return stage
 
 

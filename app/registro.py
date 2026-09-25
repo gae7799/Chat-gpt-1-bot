@@ -20,8 +20,8 @@ def save_texts(catalog):
     with closing(connect(catalog)) as db:
         previous = db.execute("SELECT value FROM snapshots WHERE key='text_export_cursor'").fetchone()
         cursor = int(previous[0]) if previous else 0
-        rows = db.execute('SELECT id,at,area,subject,outcome,details FROM events WHERE id>? ORDER BY id LIMIT 500', (cursor,)).fetchall()
-        for event_id, at, area, subject, outcome, details in rows:
+        rows = db.execute('SELECT id,at,area,subject,outcome,details,actor FROM events WHERE id>? ORDER BY id LIMIT 500', (cursor,)).fetchall()
+        for event_id, at, area, subject, outcome, details, actor in rows:
             destination = folder / f'evento-{event_id:09d}.txt'
             rendered = details
             prefix, sep, tail = details.partition('\n')
@@ -35,7 +35,7 @@ def save_texts(catalog):
                     f'{labels.get(k,k)}: {v}' for k,v in value.items() if v is not None)
             except (ValueError, AttributeError):
                 pass
-            content = (f'BEYOND THE NEXT — EVENTO {event_id}\nData UTC: {at}\nArea: {area}\n'
+            content = (f'BEYOND THE NEXT — EVENTO {event_id}\nData UTC: {at}\nChi: {actor}\nArea: {area}\n'
                        f'Oggetto: {subject}\nEsito: {outcome}\n\n{rendered}\n\n'
                        'Registro di dati, azioni e spiegazioni disponibili; non ragionamento interno del modello.\n')
             fd, temporary = tempfile.mkstemp(prefix='diario-', suffix='.tmp', dir=folder)
@@ -87,10 +87,10 @@ def logical_review(catalog, moment=None):
                                + (' Criticità bloccante: non proporre la stampa.' if review.get('blocks') else ''))
         else:
             specialist_note = f'Specialista {role}: non ci sono pareri già registrati da rileggere; nessuna nuova analisi AI.'
-        recent_actions = db.execute("""SELECT at,area,subject,outcome FROM events
+        recent_actions = db.execute("""SELECT at,actor,area,subject,outcome FROM events
             WHERE area<>'Diario logico' ORDER BY id DESC LIMIT 3""").fetchall()
-        actions = ('\n'.join(f'- {at}: {area} / {subject}: {outcome}'
-                             for at,area,subject,outcome in recent_actions)
+        actions = ('\n'.join(f'- {at}: {actor} — {area} / {subject}: {outcome}'
+                             for at,actor,area,subject,outcome in recent_actions)
                    if recent_actions else '- Nessuna azione separata registrata.')
         signal = db.execute('SELECT at,phase FROM live WHERE id=1').fetchone()
         live = f'{signal[1]} (segnale delle {signal[0]})' if signal else 'non ancora disponibile'
@@ -107,8 +107,8 @@ def logical_review(catalog, moment=None):
                 f'ULTIME AZIONI EFFETTIVE NEL REGISTRO:\n{actions}\n\n'
                 'Lettura dello stato locale: questa voce non è una nuova analisi artistica, '
                 'non verifica Fourthwall e non pubblica o modifica prodotti.')
-        db.execute('INSERT INTO events(at,area,subject,outcome,details) VALUES (?,?,?,?,?)',
-                   (moment.isoformat(timespec='seconds'),'Diario logico','Stato del lavoro','Riepilogo periodico',text))
+        db.execute('INSERT INTO events(at,area,subject,outcome,details,actor) VALUES (?,?,?,?,?,?)',
+                   (moment.isoformat(timespec='seconds'),'Diario logico','Stato del lavoro','Riepilogo periodico',text,'Diario automatico'))
         db.execute("INSERT OR REPLACE INTO snapshots VALUES ('review_time',?)",(str(moment.timestamp()),))
         db.execute("INSERT OR REPLACE INTO snapshots VALUES ('review_sequence',?)",(str(seq + 1),))
     return True
@@ -120,10 +120,21 @@ def connect(catalog):
     db.executescript('''
       CREATE TABLE IF NOT EXISTS events(
         id INTEGER PRIMARY KEY, at TEXT NOT NULL, area TEXT NOT NULL,
-        subject TEXT NOT NULL, outcome TEXT NOT NULL, details TEXT NOT NULL);
+        subject TEXT NOT NULL, outcome TEXT NOT NULL, details TEXT NOT NULL,
+        actor TEXT NOT NULL DEFAULT 'Origine non registrata');
       CREATE TABLE IF NOT EXISTS snapshots(key TEXT PRIMARY KEY, value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS live(id INTEGER PRIMARY KEY CHECK(id=1), at TEXT, phase TEXT);
     ''')
+    if 'actor' not in {row[1] for row in db.execute('PRAGMA table_info(events)')}:
+        try:
+            db.execute("ALTER TABLE events ADD COLUMN actor TEXT NOT NULL DEFAULT 'Origine non registrata'")
+            # Re-export old TXT entries so they explicitly show their unknown origin.
+            db.execute("DELETE FROM snapshots WHERE key='text_export_cursor'")
+            db.commit()
+        except sqlite3.OperationalError as exc:
+            if 'duplicate column' not in str(exc).lower():
+                db.close()
+                raise
     return db
 
 
@@ -131,10 +142,10 @@ def now():
     return datetime.now(timezone.utc).isoformat(timespec='seconds')
 
 
-def record(catalog, area, subject, outcome, details=''):
+def record(catalog, area, subject, outcome, details='', actor='Software Bot-Foto'):
     with closing(connect(catalog)) as db, db:
-        db.execute('INSERT INTO events(at,area,subject,outcome,details) VALUES (?,?,?,?,?)',
-                   (now(), area, subject, outcome, details))
+        db.execute('INSERT INTO events(at,area,subject,outcome,details,actor) VALUES (?,?,?,?,?,?)',
+                   (now(), area, subject, outcome, details, actor))
         db.execute('INSERT OR REPLACE INTO live VALUES (1,?,?)', (now(), outcome))
 
 
@@ -184,8 +195,12 @@ def capture(catalog):
             if previous and previous[0] == value:
                 continue
             details = ('Prima rilevazione; non indica la data originale della decisione.\n' if not previous else '') + value
-            db.execute('INSERT INTO events(at,area,subject,outcome,details) VALUES (?,?,?,?,?)',
-                       (now(),area,subject,outcome,details))
+            actor = ('Consiglio AI — ' + item['role'] if key.startswith('advisor:') else
+                     'Rilevazione catalogo' if key.startswith('photo:') else
+                     'Rilevazione calendario' if key.startswith('plan:') else
+                     'Rilevazione impostazioni' if key.startswith('setting:') else 'Contatore AI')
+            db.execute('INSERT INTO events(at,area,subject,outcome,details,actor) VALUES (?,?,?,?,?,?)',
+                       (now(),area,subject,outcome,details,actor))
             db.execute('INSERT OR REPLACE INTO snapshots VALUES (?,?)', (key,value))
 
 
@@ -241,8 +256,8 @@ def open_registry(parent, catalog):
         except (OSError, AttributeError):
             messagebox.showinfo('Diario',str(Path(catalog).parent / 'DIARIO_LOGICO'),parent=window)
     ttk.Button(controls,text='Apri diario TXT',command=open_texts).pack(side='left',padx=8)
-    table = ttk.Treeview(body,columns=('at','area','subject','outcome'),show='headings',height=15)
-    for col,label,width in [('at','Data UTC',180),('area','Area',110),('subject','Opera / attività',270),('outcome','Esito',350)]:
+    table = ttk.Treeview(body,columns=('at','actor','area','subject','outcome'),show='headings',height=15)
+    for col,label,width in [('at','Data UTC',170),('actor','Chi',190),('area','Area',110),('subject','Opera / attività',250),('outcome','Esito',250)]:
         table.heading(col,text=label); table.column(col,width=width)
     scroll = ttk.Scrollbar(body,orient='vertical',command=table.yview)
     table.configure(yscrollcommand=scroll.set)
@@ -261,17 +276,17 @@ def open_registry(parent, catalog):
         try:
             with closing(connect(catalog)) as db:
                 term = search.get().strip()
-                rows = db.execute('''SELECT id,at,area,subject,outcome,details FROM events
-                    WHERE instr(lower(subject || ' ' || outcome || ' ' || details || ' ' || area),lower(?))>0
+                rows = db.execute('''SELECT id,at,area,subject,outcome,details,actor FROM events
+                    WHERE instr(lower(subject || ' ' || outcome || ' ' || details || ' ' || area || ' ' || actor),lower(?))>0
                     ORDER BY id DESC LIMIT 50''',(term,)).fetchall()
                 live = db.execute('SELECT at,phase FROM live WHERE id=1').fetchone()
             wanted = {str(row[0]) for row in rows}
             for iid in table.get_children():
                 if iid not in wanted: table.delete(iid)
             cache.clear()
-            for event_id,at,area,subject,outcome,detail in rows:
-                iid = str(event_id); cache[iid] = detail
-                if not table.exists(iid): table.insert('','end',iid=iid,values=(at,area,subject,outcome))
+            for event_id,at,area,subject,outcome,detail,actor in rows:
+                iid = str(event_id); cache[iid] = f'Chi: {actor}\n\n{detail}'
+                if not table.exists(iid): table.insert('','end',iid=iid,values=(at,actor,area,subject,outcome))
             order = tuple(str(row[0]) for row in rows)
             if table.get_children() != order: table.set_children('',*order)
             status.set((f'Ultimo segnale: {live[0]} — {live[1]}. ' if live else 'Nessun segnale registrato. ') +

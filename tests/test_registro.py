@@ -4,7 +4,7 @@ import sqlite3
 import tempfile
 import unittest
 from bot import Catalog
-from registro import capture, connect, record, heartbeat, export_json
+from registro import capture, connect, record, heartbeat, export_json, save_texts
 
 
 class JournalTests(unittest.TestCase):
@@ -35,6 +35,7 @@ class JournalTests(unittest.TestCase):
             rows = json.loads(content)
             self.assertEqual(len(rows),3)
             self.assertEqual(rows[1]['outcome'],'Bozza creata')
+            self.assertEqual(rows[0]['actor'],'Rilevazione catalogo')
             self.assertTrue(rows[0]['at'].endswith('+00:00'))
             catalog.db.close()
 
@@ -60,3 +61,22 @@ class JournalTests(unittest.TestCase):
             self.assertIn('Composizione equilibrata',rows[1][0])
             self.assertNotIn('SECRET',str(rows))
             db.close(); catalog.db.close()
+
+    def test_old_events_keep_unknown_origin_and_new_events_export_actor(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / 'catalogo.sqlite'
+            old = sqlite3.connect(Path(folder) / 'registro_attivita.sqlite')
+            old.execute('CREATE TABLE events(id INTEGER PRIMARY KEY,at TEXT,area TEXT,subject TEXT,outcome TEXT,details TEXT)')
+            old.execute("INSERT INTO events(at,area,subject,outcome,details) VALUES ('2026-09-25','Test','Opera','Esito','Prima')")
+            old.commit(); old.close()
+            record(path,'Analisi AI','Opera','Valutata','Parere salvato',actor='Direttore AI e specialisti')
+            db = connect(path)
+            self.assertEqual(db.execute('SELECT actor FROM events ORDER BY id').fetchall(),
+                             [('Origine non registrata',),('Direttore AI e specialisti',)])
+            db.close()
+            self.assertEqual(save_texts(path),2)
+            self.assertIn('Chi: Direttore AI e specialisti',
+                          (Path(folder)/'DIARIO_LOGICO'/'evento-000000002.txt').read_text(encoding='utf-8'))
+            out = Path(folder)/'export.json'
+            export_json(path,out)
+            self.assertEqual(json.loads(out.read_text(encoding='utf-8'))[0]['actor'], 'Origine non registrata')
