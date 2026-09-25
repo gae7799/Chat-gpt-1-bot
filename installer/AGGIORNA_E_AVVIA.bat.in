@@ -5,22 +5,7 @@ if not exist "%BOT_FOTO_TARGET%bot.py" goto cartella
 if not exist "%BOT_FOTO_TARGET%FOTO\" goto cartella
 if not exist "%BOT_FOTO_TARGET%DATI\" goto cartella
 echo Scarico e verifico l'aggiornamento Beyond The Next __VERSION__...
-powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$ErrorActionPreference='Stop';" ^
-  "$url='https://github.com/gae7799/Chat-gpt-1-bot/releases/download/v__VERSION__/Aggiornamento-Automatico-__VERSION__.zip';" ^
-  "$expected='__SHA256__';" ^
-  "$temp=Join-Path $env:TEMP ('bot-foto-'+[guid]::NewGuid().ToString('N'));" ^
-  "try {" ^
-  "New-Item -ItemType Directory -Path $temp | Out-Null;" ^
-  "$zip=Join-Path $temp 'pacchetto.zip';" ^
-  "Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -TimeoutSec 60;" ^
-  "if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Hash del pacchetto non valido' };" ^
-  "Expand-Archive -LiteralPath $zip -DestinationPath $temp -Force;" ^
-  "$installer=Join-Path $temp 'Aggiornamento-Automatico-__VERSION__\installa.ps1';" ^
-  "if (-not (Test-Path -LiteralPath $installer)) { throw 'Pacchetto incompleto' };" ^
-  "& $installer -TargetPath $env:BOT_FOTO_TARGET;" ^
-  "if (-not $?) { throw 'Installazione non completata' }" ^
-  "} catch { Write-Error $_; exit 1 } finally { Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue }"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand __ENCODED_COMMAND__
 if errorlevel 1 goto errore
 echo Aggiornamento completato. Avvio il bot...
 call "%BOT_FOTO_TARGET%AVVIA.bat"

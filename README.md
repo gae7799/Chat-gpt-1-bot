@@ -4,7 +4,7 @@ Applicazione Windows per gestire il catalogo fotografico Fourthwall, l'analisi O
 
 ## Installazione
 
-Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.0.2, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
+Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.0.3, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
 
 ## Aggiornamenti
 
@@ -16,11 +16,11 @@ Foto, credenziali e database restano sul PC e non fanno parte dei pacchetti. Il 
 
 ## Pubblicare una versione
 
-1. Modificare i sorgenti in `app/` e incrementare `app/VERSION.txt` con tre numeri, per esempio `2.0.3`.
+1. Modificare i sorgenti in `app/` e incrementare `app/VERSION.txt` con tre numeri, per esempio `2.0.4`.
 2. Aggiornare i test. Per nuovi moduli verificare la compatibilità con l'elenco dei file accettati dal programma di avvio già distribuito.
 3. Eseguire `PYTHONPATH=app python -m unittest discover -s tests -v` (su Windows impostare PYTHONPATH secondo la shell).
 4. Eseguire `python tools/build_release.py` per produrre i pacchetti in `dist/`.
-5. Pubblicare un tag `v2.0.3`, oppure avviare manualmente il workflow **Verifica e pubblica aggiornamento** in Actions.
+5. Pubblicare un tag `v2.0.4`, oppure avviare manualmente il workflow **Verifica e pubblica aggiornamento** in Actions.
 
 Il workflow verifica su Windows e Linux e crea la release solo dopo il successo dei test. Non sovrascrive una release già esistente: usare sempre una versione nuova. Una modifica su main senza release non viene distribuita automaticamente.
 

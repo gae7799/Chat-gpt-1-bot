@@ -1,0 +1,20 @@
+$ErrorActionPreference='Stop'
+$url='https://github.com/gae7799/Chat-gpt-1-bot/releases/download/v__VERSION__/Aggiornamento-Automatico-__VERSION__.zip'
+$expected='__SHA256__'
+$temp=Join-Path $env:TEMP ('bot-foto-'+[guid]::NewGuid().ToString('N'))
+try {
+    New-Item -ItemType Directory -Path $temp | Out-Null
+    $zip=Join-Path $temp 'pacchetto.zip'
+    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing -TimeoutSec 60
+    if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Hash del pacchetto non valido' }
+    Expand-Archive -LiteralPath $zip -DestinationPath $temp -Force
+    $installer=Join-Path $temp 'Aggiornamento-Automatico-__VERSION__\installa.ps1'
+    if (-not (Test-Path -LiteralPath $installer)) { throw 'Pacchetto incompleto' }
+    & $installer -TargetPath $env:BOT_FOTO_TARGET
+    if (-not $?) { throw 'Installazione non completata' }
+} catch {
+    Write-Host ('Aggiornamento fallito: ' + $_.Exception.Message)
+    exit 1
+} finally {
+    Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
+}

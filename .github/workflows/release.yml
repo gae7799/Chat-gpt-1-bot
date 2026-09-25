@@ -24,6 +24,18 @@ jobs:
         env:
           PYTHONPATH: app
         run: python -m unittest discover -s tests -v
+      - name: Verifica script BAT su Windows
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          python tools/build_release.py
+          $encoded = (Get-Content dist/AGGIORNA_E_AVVIA.bat | Select-String 'EncodedCommand').ToString().Split(' ')[-1]
+          $script = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($encoded))
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseInput($script, [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count) { throw $errors[0] }
+          if ($script -notmatch 'Aggiornamento-Automatico-' -or $script -notmatch 'TargetPath') { throw 'BAT incompleto' }
   publish:
     needs: test
     runs-on: ubuntu-latest

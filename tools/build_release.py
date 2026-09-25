@@ -1,5 +1,6 @@
 """Build only allowlisted program files; never include FOTO, DATI or credentials."""
 from pathlib import Path
+import base64
 import hashlib
 import json
 import shutil
@@ -39,8 +40,10 @@ def build():
             if p.is_file():z.write(p,p.relative_to(out))
     installer_zip=out/('Aggiornamento-Automatico-'+release+'.zip')
     # Single BAT for the existing Bot-Foto directory, pinned to the exact release bytes.
+    ps=(ROOT/'installer'/'bootstrap.ps1.in').read_text()
+    ps=ps.replace('__VERSION__',release).replace('__SHA256__',hashlib.sha256(installer_zip.read_bytes()).hexdigest())
     launcher=(ROOT/'installer'/'AGGIORNA_E_AVVIA.bat.in').read_text()
-    launcher=launcher.replace('__VERSION__',release).replace('__SHA256__',hashlib.sha256(installer_zip.read_bytes()).hexdigest())
+    launcher=launcher.replace('__VERSION__',release).replace('__ENCODED_COMMAND__',base64.b64encode(ps.encode('utf-16le')).decode('ascii'))
     (out/'AGGIORNA_E_AVVIA.bat').write_bytes(launcher.replace('\n','\r\n').encode('ascii'))
     print('Pacchetti pronti in dist; versione '+release)
 
