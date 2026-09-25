@@ -15,7 +15,10 @@ class RegistryCadenceTests(unittest.TestCase):
             start = datetime(2026, 9, 25, 12, 0, tzinfo=timezone.utc)
             with closing(connect(catalog)) as db, db:
                 db.execute("INSERT INTO snapshots VALUES (?,?)", ('advisor:photo:marketing', json.dumps({
-                    'first_name':'foto.jpg', 'action':'Controllare la proposta organica', 'blocks':0})))
+                    'first_name':'foto.jpg', 'assessment':'Composizione adatta alla linea',
+                    'action':'Controllare la proposta organica', 'blocks':0})))
+                db.execute("INSERT INTO events(at,area,subject,outcome,details) VALUES (?,?,?,?,?)",
+                           (start.isoformat(timespec='seconds'),'Catalogo foto','Bot','1 foto registrata','Scansione completata'))
             for minute in range(5):
                 moment = start + timedelta(minutes=minute)
                 self.assertTrue(logical_review(catalog, moment))
@@ -24,6 +27,9 @@ class RegistryCadenceTests(unittest.TestCase):
                 notes = db.execute("SELECT details FROM events WHERE area='Diario logico' ORDER BY id").fetchall()
                 self.assertEqual(len(notes), 5)
                 self.assertIn('Controllare la proposta organica', notes[1][0])
+                self.assertIn('Valutazione: Composizione adatta alla linea', notes[1][0])
+                self.assertIn('Catalogo foto / Bot: 1 foto registrata', notes[1][0])
+                self.assertIn('non verifica Fourthwall', notes[1][0])
                 for _ in range(46):
                     db.execute("INSERT INTO events(at,area,subject,outcome,details) VALUES (?,?,?,?,?)",
                         ((start + timedelta(minutes=4,seconds=30)).isoformat(timespec='seconds'),

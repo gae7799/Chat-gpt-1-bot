@@ -80,23 +80,33 @@ def logical_review(catalog, moment=None):
         specialist = db.execute("SELECT value FROM snapshots WHERE key LIKE 'advisor:%:' || ? ORDER BY key DESC LIMIT 1", (role,)).fetchone()
         if specialist:
             review = json.loads(specialist[0])
-            specialist_note = (f'Specialista {role}, valutazione già registrata su {review.get("first_name", "foto")}: '
-                               f'{review.get("action", "nessuna azione proposta")}.'
+            specialist_note = (f'Specialista {role}: ho riletto il parere già registrato per '
+                               f'{review.get("first_name", "foto")}. Valutazione: '
+                               f'{review.get("assessment", "non disponibile")}. '
+                               f'Azione proposta allora: {review.get("action", "nessuna azione proposta")}.'
                                + (' Criticità bloccante: non proporre la stampa.' if review.get('blocks') else ''))
         else:
-            specialist_note = f'Specialista {role}: in attesa di una fotografia analizzata; nessun nuovo parere AI.'
-        text = (f'Riepilogo automatico basato sui dati registrati, non una nuova analisi AI.\n'
-                f'Gestione autonoma: {"attiva" if enabled else "sospesa o non configurata"}.\n'
-                f'Fotografie nel catalogo storico: {len(photos)}.\n'
-                f'Valutazioni AI completate: {sum(p.get("ai_status")=="Analizzata" for p in photos)}.\n'
-                f'Foto selezionate dall’AI: {sum(p.get("ai_recommended")==1 for p in photos)}.\n'
-                f'Prodotti registrati: {sum(bool(p.get("product_id")) for p in photos)}.\n'
-                f'Proposte approvate in attesa: {len(awaiting)}. Prima data locale: {next_date}.\n'
-                f'Pubblicazioni registrate: {sum(p.get("status")=="Pubblicata" for p in plans)}.\n'
-                f'{specialist_note}\n'
-                'Prossimo controllo: nuove foto, coda AI e scadenze del calendario.\n'
-                'Se i dati non cambiano, resto in attesa: nessuna nuova valutazione artistica viene inventata.\n'
-                'Questo riepilogo non verifica lo shop pubblico e non pubblica prodotti.')
+            specialist_note = f'Specialista {role}: non ci sono pareri già registrati da rileggere; nessuna nuova analisi AI.'
+        recent_actions = db.execute("""SELECT at,area,subject,outcome FROM events
+            WHERE area<>'Diario logico' ORDER BY id DESC LIMIT 3""").fetchall()
+        actions = ('\n'.join(f'- {at}: {area} / {subject}: {outcome}'
+                             for at,area,subject,outcome in recent_actions)
+                   if recent_actions else '- Nessuna azione separata registrata.')
+        signal = db.execute('SELECT at,phase FROM live WHERE id=1').fetchone()
+        live = f'{signal[1]} (segnale delle {signal[0]})' if signal else 'non ancora disponibile'
+        text = (f'CONTROLLO ESEGUITO: ho letto lo stato salvato del catalogo, del calendario e dei pareri degli specialisti.\n'
+                f'Ultima fase segnalata dal programma: {live}.\n\n'
+                f'ESITO CATALOGO: {len(photos)} fotografie registrate; '
+                f'{sum(p.get("ai_status")=="Analizzata" for p in photos)} analisi AI completate; '
+                f'{sum(p.get("ai_recommended")==1 for p in photos)} selezioni AI; '
+                f'{sum(bool(p.get("product_id")) for p in photos)} prodotti collegati.\n'
+                f'ESITO CALENDARIO: gestione {"attiva" if enabled else "sospesa o non configurata"}; '
+                f'{len(awaiting)} proposte approvate in attesa; prima data prevista {next_date}; '
+                f'{sum(p.get("status")=="Pubblicata" for p in plans)} pubblicazioni registrate dal bot.\n\n'
+                f'PARERE CONSULTATO: {specialist_note}\n\n'
+                f'ULTIME AZIONI EFFETTIVE NEL REGISTRO:\n{actions}\n\n'
+                'Lettura dello stato locale: questa voce non è una nuova analisi artistica, '
+                'non verifica Fourthwall e non pubblica o modifica prodotti.')
         db.execute('INSERT INTO events(at,area,subject,outcome,details) VALUES (?,?,?,?,?)',
                    (moment.isoformat(timespec='seconds'),'Diario logico','Stato del lavoro','Riepilogo periodico',text))
         db.execute("INSERT OR REPLACE INTO snapshots VALUES ('review_time',?)",(str(moment.timestamp()),))

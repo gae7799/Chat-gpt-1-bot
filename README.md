@@ -4,7 +4,7 @@ Applicazione Windows per gestire il catalogo fotografico Fourthwall, l'analisi O
 
 ## Installazione
 
-Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.0.4, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
+Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.0.5, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
 
 ## Aggiornamenti
 
@@ -16,11 +16,11 @@ Foto, credenziali e database restano sul PC e non fanno parte dei pacchetti. Il 
 
 ## Pubblicare una versione
 
-1. Modificare i sorgenti in `app/` e incrementare `app/VERSION.txt` con tre numeri, per esempio `2.0.5`.
+1. Modificare i sorgenti in `app/` e incrementare `app/VERSION.txt` con tre numeri, per esempio `2.0.6`.
 2. Aggiornare i test. Per nuovi moduli verificare la compatibilità con l'elenco dei file accettati dal programma di avvio già distribuito.
 3. Eseguire `PYTHONPATH=app python -m unittest discover -s tests -v` (su Windows impostare PYTHONPATH secondo la shell).
 4. Eseguire `python tools/build_release.py` per produrre i pacchetti in `dist/`.
-5. Pubblicare un tag `v2.0.5`, oppure avviare manualmente il workflow **Verifica e pubblica aggiornamento** in Actions.
+5. Pubblicare un tag `v2.0.6`, oppure avviare manualmente il workflow **Verifica e pubblica aggiornamento** in Actions.
 
 Il workflow verifica su Windows e Linux e crea la release solo dopo il successo dei test. Non sovrascrive una release già esistente: usare sempre una versione nuova. Una modifica su main senza release non viene distribuita automaticamente.
 
@@ -38,3 +38,5 @@ La ricerca di mercato e l'analisi delle immagini usano l'API OpenAI a consumo. L
 ## Registro e specialisti
 
 Durante l’attività il bot controlla FOTO ogni 15 secondi; la coda AI e il calendario ogni minuto, lo shop ogni 5 minuti. Il diario produce un riepilogo fattuale circa ogni minuto (normalmente cinque in cinque minuti, limite 50 in una finestra di cinque minuti). Le azioni reali e gli errori restano nello storico completo; gli errori identici sono aggregati per cinque minuti. I quattro specialisti producono pareri con una singola analisi per foto entro il limite AI di cinque richieste al giorno; i riepiloghi richiamano azioni già registrate, senza nuove chiamate API né valutazioni inventate.
+
+Il diario ha un ciclo separato dalle chiamate a Fourthwall e OpenAI, con riprova breve se il registro è momentaneamente occupato. Ogni voce descrive la lettura dei dati, il risultato, il parere consultato e le ultime azioni effettive senza presentare un riepilogo come nuova analisi AI.

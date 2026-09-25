@@ -175,13 +175,13 @@ def main():
     from registro import record, heartbeat, observe, save_texts, logical_review
     db_path = ROOT / 'DATI' / 'catalogo.sqlite'
     last_logged = {}
-    def journal(area, outcome):
+    def journal(area, outcome, details=''):
         stamp = time.monotonic()
         key = (area, outcome)
-        if area.startswith('Errore') and stamp - last_logged.get(key, -300) < 300:
+        if (area.startswith('Errore') or area == 'Limite AI') and stamp - last_logged.get(key, -300) < 300:
             return
         try:
-            record(db_path, area, 'Bot', outcome)
+            record(db_path, area, 'Bot', outcome, details)
             last_logged[key] = stamp
         except (sqlite3.Error, OSError):
             results.put(('error', 'Registro attività non disponibile: controlla accesso e spazio in DATI.'))
@@ -195,18 +195,37 @@ def main():
         last_store_sync = 0
         last_ai_check = 0
         last_director_check = 0
+        last_photo_count = None
+        diary_started = False
         try:
             catalog = Catalog(ROOT)
             journal('Sessione', 'Avvio del bot')
             def daily_worker():
                 from analisi_giornaliera import run_daily
+                previous_stage = None
                 while not stop.is_set():
                     try:
-                        run_daily(db_path)
+                        stage = run_daily(db_path)
+                        if stage != previous_stage:
+                            journal('Rapporto giornaliero', f'Fase: {stage}',
+                                    'La fase è stata eseguita o riletta; consulta Rapporto giornaliero per dati e fonti.')
+                            previous_stage = stage
                     except Exception:
                         journal('Analisi giornaliera', 'Rapporto non aggiornato: controllare DATI e connessione')
                     stop.wait(60)
             threading.Thread(target=daily_worker, daemon=True).start()
+            def diary_worker():
+                next_note = time.monotonic()
+                while not stop.is_set():
+                    try:
+                        logical_review(db_path)
+                        save_texts(db_path)
+                    except (sqlite3.Error, OSError):
+                        results.put(('error', 'Diario temporaneamente non disponibile: nuovo tentativo tra 5 secondi.'))
+                        next_note = time.monotonic() + 5
+                    else:
+                        next_note = max(next_note + 60, time.monotonic() + 1)
+                    stop.wait(max(0, next_note - time.monotonic()))
             try:
                 from direttore_autonomo import generate_plan
                 generate_plan(ROOT / 'DATI' / 'catalogo.sqlite')
@@ -215,9 +234,18 @@ def main():
             while not stop.is_set():
                 try:
                     phase('Controllo della cartella FOTO')
-                    results.put(('ok', catalog.scan()))
+                    rows, errors = catalog.scan()
+                    results.put(('ok', (rows, errors)))
+                    if len(rows) != last_photo_count:
+                        journal('Catalogo foto', f'{len(rows)} fotografie uniche presenti',
+                                'Scansione della cartella FOTO completata. Le copie identiche vengono raggruppate. '
+                                f'File non leggibili nel ciclo: {len(errors)}.')
+                        last_photo_count = len(rows)
                     if not observe(db_path):
                         results.put(('error', 'Registro: acquisizione del catalogo non riuscita.'))
+                    if not diary_started:
+                        threading.Thread(target=diary_worker, daemon=True).start()
+                        diary_started = True
                     if time.monotonic() - last_ai_check >= 60:
                         last_ai_check = time.monotonic()
                         try:
@@ -225,6 +253,15 @@ def main():
                             phase('Controllo coda e disponibilità analisi AI')
                             outcome = process_next(ROOT / 'DATI' / 'catalogo.sqlite', ROOT / 'FOTO')
                             phase('Limite giornaliero AI raggiunto' if outcome and outcome[0] == 'limit' else 'Controllo AI completato')
+                            if outcome and outcome[0] == 'analyzed':
+                                result = outcome[2]
+                                journal('Analisi AI', f'Foto valutata: {outcome[1]}',
+                                        f'Titolo proposto: {result["title"]}. Punteggio: {result["score"]}/100. '
+                                        f'Selezionata: {"sì" if result["recommended"] else "no"}. '
+                                        f'Motivazione: {result["reason"]}. Quattro pareri salvati nel Consiglio degli specialisti.')
+                            elif outcome and outcome[0] == 'limit':
+                                journal('Limite AI', 'Cinque analisi raggiunte oggi; nuove foto in attesa',
+                                        'Nessuna ulteriore chiamata OpenAI per le fotografie fino al prossimo giorno.')
                         except Exception as exc:
                             journal('Errore AI', 'Analisi non completata: verificare chiave, credito e collegamento')
                             results.put(('error', 'Direttore AI: ' + str(exc)))
@@ -237,20 +274,20 @@ def main():
                                 last_store_sync = time.monotonic()
                                 phase('Allineamento prodotti pubblici con Fourthwall')
                                 reconcile_plan(ROOT / 'DATI' / 'catalogo.sqlite')
-                            compact_pending_plan(ROOT / 'DATI' / 'catalogo.sqlite')
-                            schedule_ai_products(ROOT / 'DATI' / 'catalogo.sqlite')
-                            publish_due(ROOT / 'DATI' / 'catalogo.sqlite')
+                            moved = compact_pending_plan(ROOT / 'DATI' / 'catalogo.sqlite')
+                            scheduled = schedule_ai_products(ROOT / 'DATI' / 'catalogo.sqlite')
+                            published = publish_due(ROOT / 'DATI' / 'catalogo.sqlite')
+                            if moved or scheduled or published:
+                                journal('Calendario', 'Piano aggiornato',
+                                        f'Scadenze ricollocate: {moved or 0}; nuove opere pianificate: '
+                                        f'{scheduled or 0}; prodotti pubblicati e confermati: {published or 0}. '
+                                        'Dettagli delle opere disponibili nel Direttore autonomo.')
                         except Exception as exc:
                             journal('Errore pubblicazione', 'Operazione non completata: verificare stato del negozio')
                             results.put(('error', 'Pubblicazione autonoma: ' + str(exc)))
                     if not observe(db_path):
                         results.put(('error', 'Registro: acquisizione delle decisioni non riuscita.'))
                     phase('Ciclo completato; attesa del prossimo controllo')
-                    try:
-                        logical_review(db_path)
-                        save_texts(db_path)
-                    except (sqlite3.Error, OSError):
-                        results.put(('error', 'Diario TXT non salvato: controlla accesso e spazio in DATI. Nuovo tentativo al prossimo ciclo.'))
                 except Exception:
                     journal('Errore catalogo', 'Controllo FOTO o DATI non riuscito')
                     results.put(('error', 'Controllo non riuscito. Verifica accesso a FOTO e DATI; nuovo tentativo fra 15 secondi.'))
