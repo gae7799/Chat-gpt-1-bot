@@ -1,10 +1,15 @@
+param([string]$TargetPath)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
-$dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-$dialog.Description = 'Chiudi il bot. Seleziona Bot-Foto, contenente AVVIA.bat, FOTO e DATI.'
-$dialog.ShowNewFolderButton = $false
-if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { exit 1 }
-$target = $dialog.SelectedPath
+if ($TargetPath) {
+    $target = (Resolve-Path -LiteralPath $TargetPath -ErrorAction Stop).Path
+} else {
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = 'Chiudi il bot. Seleziona Bot-Foto, contenente AVVIA.bat, FOTO e DATI.'
+    $dialog.ShowNewFolderButton = $false
+    if ($dialog.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { exit 1 }
+    $target = $dialog.SelectedPath
+}
 foreach ($name in @('bot.py','AVVIA.bat','FOTO','DATI','direttore_autonomo.py','fourthwall_api.py','registro.py')) {
     if (-not (Test-Path -LiteralPath (Join-Path $target $name))) {
         [System.Windows.Forms.MessageBox]::Show('Cartella non valida. Nessuna modifica.') | Out-Null

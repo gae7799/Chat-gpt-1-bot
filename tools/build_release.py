@@ -37,6 +37,11 @@ def build():
     with zipfile.ZipFile(out/('Aggiornamento-Automatico-'+release+'.zip'),'w',zipfile.ZIP_DEFLATED) as z:
         for p in sorted(bundle.rglob('*')):
             if p.is_file():z.write(p,p.relative_to(out))
+    installer_zip=out/('Aggiornamento-Automatico-'+release+'.zip')
+    # Single BAT for the existing Bot-Foto directory, pinned to the exact release bytes.
+    launcher=(ROOT/'installer'/'AGGIORNA_E_AVVIA.bat.in').read_text()
+    launcher=launcher.replace('__VERSION__',release).replace('__SHA256__',hashlib.sha256(installer_zip.read_bytes()).hexdigest())
+    (out/'AGGIORNA_E_AVVIA.bat').write_bytes(launcher.replace('\n','\r\n').encode('ascii'))
     print('Pacchetti pronti in dist; versione '+release)
 
 

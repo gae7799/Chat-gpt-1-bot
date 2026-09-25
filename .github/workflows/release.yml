@@ -49,4 +49,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$RELEASE_VERSION" dist/manifest.json dist/bot-foto-update.zip "dist/Aggiornamento-Automatico-$RELEASE_VERSION.zip" --target "$GITHUB_SHA" --title "Bot-Foto $RELEASE_VERSION" --notes "Aggiornamento verificato su Windows e Linux. I dati personali restano sul PC."
+          gh release create "v$RELEASE_VERSION" dist/manifest.json dist/bot-foto-update.zip dist/AGGIORNA_E_AVVIA.bat "dist/Aggiornamento-Automatico-$RELEASE_VERSION.zip" --target "$GITHUB_SHA" --title "Bot-Foto $RELEASE_VERSION" --notes "Aggiornamento verificato su Windows e Linux. I dati personali restano sul PC."
