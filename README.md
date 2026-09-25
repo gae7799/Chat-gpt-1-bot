@@ -4,7 +4,7 @@ Applicazione Windows per gestire il catalogo fotografico Fourthwall, l'analisi O
 
 ## Installazione
 
-Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.0.7, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
+Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.0.8, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
 
 ## Aggiornamenti
 
