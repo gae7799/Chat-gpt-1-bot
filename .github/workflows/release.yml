@@ -1,7 +1,6 @@
 name: Verifica e pubblica aggiornamento
 on:
   push:
-    tags: ['v*']
     branches: [main]
     paths: ['app/VERSION.txt', '.github/workflows/release.yml']
   workflow_dispatch:

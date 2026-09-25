@@ -1,3 +1,4 @@
+from contextlib import closing
 from datetime import date, datetime
 from pathlib import Path
 import sqlite3
@@ -13,7 +14,7 @@ from direttore_autonomo import publish_due
 
 class ReliabilityTests(unittest.TestCase):
     def catalog(self, path):
-        with sqlite3.connect(path) as db:
+        with closing(sqlite3.connect(path)) as db, db:
             db.executescript('''
                 CREATE TABLE photos(sha TEXT PRIMARY KEY,first_name TEXT,created TEXT DEFAULT CURRENT_TIMESTAMP,status TEXT,product_id TEXT);
                 CREATE TABLE files(path TEXT PRIMARY KEY,sha TEXT,present INTEGER);
@@ -31,7 +32,7 @@ class ReliabilityTests(unittest.TestCase):
             answer = sample(False); answer['recommended'] = 'true'
             with self.assertRaises(RuntimeError):
                 process_next(path, folder, analyzer=lambda *args: answer, key_loader=lambda: ('u','k'))
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 self.assertEqual(db.execute('SELECT ai_status FROM photos').fetchone()[0], 'Errore analisi')
                 self.assertEqual(db.execute('SELECT COUNT(*) FROM advisor_reviews').fetchone()[0], 0)
 
@@ -39,11 +40,11 @@ class ReliabilityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'catalogo.sqlite'
             self.catalog(path)
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 db.execute("UPDATE photos SET ai_status='Analisi in corso',ai_started_at='2000-01-01 00:00:00'")
                 db.execute('INSERT INTO ai_usage VALUES (?,5)', (date.today().isoformat(),))
             self.assertEqual(process_next(path, folder, analyzer=lambda *args: self.fail('Extra AI call')), ('limit', 5))
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 self.assertEqual(db.execute('SELECT ai_status FROM photos').fetchone()[0], 'Errore analisi')
                 self.assertEqual(db.execute('SELECT analyses FROM ai_usage').fetchone()[0], 5)
 
@@ -52,7 +53,7 @@ class ReliabilityTests(unittest.TestCase):
             path = Path(folder) / 'catalogo.sqlite'
             test_director.DirectorTests()._scheduled(path)
             def getter(*args):
-                with sqlite3.connect(path) as db:
+                with closing(sqlite3.connect(path)) as db, db:
                     db.execute("UPDATE bot_settings SET value='0' WHERE key='director_auto_enabled'")
                 return 'HIDDEN'
             result = publish_due(path, datetime(2026,9,26),

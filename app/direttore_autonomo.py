@@ -1,3 +1,4 @@
+from contextlib import closing
 """Shop director: reconcile Fourthwall visibility before scheduled releases."""
 from datetime import datetime, timedelta
 import sqlite3
@@ -217,7 +218,7 @@ def publish_due(db_path, now=None, product_setter=None, collection_setter=None, 
     if not pair: raise RuntimeError('Credenziali Fourthwall non trovate.')
     published = 0
     def still_enabled():
-        with sqlite3.connect(db_path, timeout=15) as current:
+        with closing(sqlite3.connect(db_path, timeout=15)) as current:
             setting = current.execute("SELECT value FROM bot_settings WHERE key='director_auto_enabled'").fetchone()
             return bool(setting and setting[0] == '1')
     for plan_id, product_id, title in rows:

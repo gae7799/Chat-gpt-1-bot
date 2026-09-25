@@ -4,7 +4,7 @@ Applicazione Windows per gestire il catalogo fotografico Fourthwall, l'analisi O
 
 ## Installazione
 
-Scaricare `Aggiornamento-Automatico-2.0.0.zip` dalla release, estrarlo e avviare `INSTALLA_AGGIORNAMENTO.bat`. Selezionare la cartella Bot-Foto già in uso. Chiudere prima il bot e il suo avvio. In seguito usare sempre `AVVIA.bat`.
+Scaricare `Aggiornamento-Automatico-2.0.1.zip` dalla release, estrarlo e avviare `INSTALLA_AGGIORNAMENTO.bat`. Selezionare la cartella Bot-Foto già in uso. Chiudere prima il bot e il suo avvio. In seguito usare sempre `AVVIA.bat`.
 
 ## Aggiornamenti
 
@@ -16,11 +16,11 @@ Foto, credenziali e database restano sul PC e non fanno parte dei pacchetti. Il 
 
 ## Pubblicare una versione
 
-1. Modificare i sorgenti in `app/` e incrementare `app/VERSION.txt` con tre numeri, per esempio `2.0.1`.
+1. Modificare i sorgenti in `app/` e incrementare `app/VERSION.txt` con tre numeri, per esempio `2.0.2`.
 2. Aggiornare i test. Per nuovi moduli verificare la compatibilità con l'elenco dei file accettati dal programma di avvio già distribuito.
 3. Eseguire `PYTHONPATH=app python -m unittest discover -s tests -v` (su Windows impostare PYTHONPATH secondo la shell).
 4. Eseguire `python tools/build_release.py` per produrre i pacchetti in `dist/`.
-5. Pubblicare un tag `v2.0.1`, oppure avviare manualmente il workflow **Verifica e pubblica aggiornamento** in Actions.
+5. Pubblicare un tag `v2.0.2`, oppure avviare manualmente il workflow **Verifica e pubblica aggiornamento** in Actions.
 
 Il workflow verifica su Windows e Linux e crea la release solo dopo il successo dei test. Non sovrascrive una release già esistente: usare sempre una versione nuova. Una modifica su main senza release non viene distribuita automaticamente.
 

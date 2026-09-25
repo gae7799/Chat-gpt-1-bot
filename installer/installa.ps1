@@ -1,4 +1,4 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
 $dialog.Description = 'Chiudi il bot. Seleziona Bot-Foto, contenente AVVIA.bat, FOTO e DATI.'
@@ -22,7 +22,9 @@ if ($running.Count -gt 0) {
     exit 4
 }
 $payload = Join-Path $PSScriptRoot 'NUOVI_FILE'
-$backup = Join-Path $target ('BACKUP-PRE-2.0.0-' + [guid]::NewGuid().ToString('N'))
+$releaseVersion = (Get-Content -LiteralPath (Join-Path $payload 'VERSION.txt') -Raw).Trim()
+if ($releaseVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'Versione del pacchetto non valida.' }
+$backup = Join-Path $target ('BACKUP-PRE-' + $releaseVersion + '-' + [guid]::NewGuid().ToString('N'))
 $changed = @()
 try {
     $files = @(Get-ChildItem -LiteralPath $payload -File | Where-Object { $_.Name -notlike 'test_*.py' })
@@ -41,7 +43,7 @@ try {
             throw ('Verifica del file non riuscita: ' + $file.Name)
         }
     }
-    [System.Windows.Forms.MessageBox]::Show('Aggiornamento 2.0.0 completato. FOTO, DATI, piano e credenziali conservati. Riapri AVVIA.bat.') | Out-Null
+    [System.Windows.Forms.MessageBox]::Show(('Aggiornamento ' + $releaseVersion + ' completato. FOTO, DATI, piano e credenziali conservati. Riapri AVVIA.bat.')) | Out-Null
 } catch {
     $recovered = $true
     foreach ($name in $changed) {

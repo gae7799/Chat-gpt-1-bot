@@ -1,3 +1,4 @@
+from contextlib import closing
 from datetime import datetime,timedelta
 from pathlib import Path
 import json
@@ -42,7 +43,7 @@ class DiagnosticsTests(unittest.TestCase):
             run_daily(path,now+timedelta(minutes=17),**fns)
             self.assertIn('già stato usato',queue_retry(path,'2026-09-24'))
             self.assertEqual(run_daily(path,now+timedelta(hours=2),**fns),'limite')
-            with connect(path) as db:
+            with closing(connect(path)) as db, db:
                 row=db.execute("SELECT attempts,error FROM daily_agents WHERE stage='mercato'").fetchone()
                 shop=db.execute("SELECT state FROM daily_agents WHERE stage='negozio'").fetchone()[0]
             self.assertEqual(row,(3,'Credito API esaurito.'));self.assertEqual(shop,'completato')

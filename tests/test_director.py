@@ -1,3 +1,4 @@
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 import sqlite3
@@ -27,7 +28,7 @@ class DirectorTests(unittest.TestCase):
                              product_setter=lambda *args: changes.append(args),
                              product_getter=getter, credential_loader=lambda: ('user','pass')), 0)
             self.assertFalse(changes)
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 self.assertEqual(db.execute('SELECT status FROM director_plan').fetchone()[0], 'Già pubblica')
 
     def test_hidden_product_publishes_only_after_confirmation(self):
@@ -40,7 +41,7 @@ class DirectorTests(unittest.TestCase):
                              product_setter=publish,
                              product_getter=lambda *args: access['value'],
                              credential_loader=lambda: ('user','pass')), 1)
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 self.assertEqual(db.execute('SELECT status FROM director_plan').fetchone()[0], 'Pubblicata')
 
     def test_unknown_access_blocks_publish(self):
@@ -52,7 +53,7 @@ class DirectorTests(unittest.TestCase):
                             product_setter=lambda *args: self.fail('unexpected publish'),
                             product_getter=lambda *args: 'PRIVATE',
                             credential_loader=lambda: ('user','pass'))
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 self.assertEqual(db.execute('SELECT status FROM director_plan').fetchone()[0], 'Approvata')
 
     def test_builds_safe_five_item_plan(self):
@@ -77,7 +78,7 @@ class DirectorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'catalogo.sqlite'
             self._scheduled(path)
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 db.execute("UPDATE director_plan SET status='Già pubblica' WHERE id=1")
                 db.executemany('INSERT INTO director_plan VALUES (?,?,?,?,?,?,?)', [
                     (2,'fw-shara','Shara',2,'2026-10-02T18:30','', 'Già pubblica'),
@@ -88,7 +89,7 @@ class DirectorTests(unittest.TestCase):
             now = datetime(2026,9,22,12)
             self.assertEqual(compact_pending_plan(path, now=now), 2)
             self.assertEqual(compact_pending_plan(path, now=now), 0)
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 rows = db.execute('SELECT proposed_at,status FROM director_plan ORDER BY id').fetchall()
                 events = db.execute("SELECT COUNT(*) FROM director_runs WHERE outcome='rescheduled'").fetchone()[0]
             self.assertEqual([row[0] for row in rows], [
@@ -103,7 +104,7 @@ class DirectorTests(unittest.TestCase):
             path = Path(folder) / 'catalogo.sqlite'
             self._scheduled(path)
             self.assertEqual(compact_pending_plan(path, now=datetime(2026,9,26,12)), 0)
-            with sqlite3.connect(path) as db:
+            with closing(sqlite3.connect(path)) as db, db:
                 self.assertEqual(db.execute('SELECT proposed_at FROM director_plan').fetchone()[0],
                                  '2026-09-25T18:30')
 

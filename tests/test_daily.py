@@ -1,3 +1,4 @@
+from contextlib import closing
 from datetime import datetime, timedelta
 from pathlib import Path
 import json
@@ -9,7 +10,7 @@ from analisi_giornaliera import run_daily, connect, market_report, editorial_rep
 
 class DailyTests(unittest.TestCase):
     def setup_db(self, path):
-        with sqlite3.connect(path) as db:
+        with closing(sqlite3.connect(path)) as db, db:
             db.executescript('''CREATE TABLE bot_settings(key TEXT PRIMARY KEY,value TEXT);
                 INSERT INTO bot_settings VALUES ('director_auto_enabled','1');
                 CREATE TABLE photos(sha TEXT,product_id TEXT,ai_recommended INTEGER,ai_title TEXT,ai_score INTEGER);
@@ -36,7 +37,7 @@ class DailyTests(unittest.TestCase):
             self.assertEqual(calls,['shop','market','editorial'])
             self.assertTrue((Path(folder)/'RAPPORTI_GIORNALIERI/2026-09-24.html').exists())
             self.assertEqual(run_daily(path,now+timedelta(days=1),**fns),'negozio')
-            with connect(path) as db:
+            with closing(connect(path)) as db, db:
                 report=json.loads(db.execute("SELECT payload FROM daily_agents WHERE day='2026-09-25' AND stage='negozio'").fetchone()[0])
             self.assertEqual(report['visibility_changes'],[])
 
@@ -57,7 +58,7 @@ class DailyTests(unittest.TestCase):
     def test_paused_never_calls_providers(self):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'catalogo.sqlite';self.setup_db(path)
-            with sqlite3.connect(path) as db: db.execute("UPDATE bot_settings SET value='0'")
+            with closing(sqlite3.connect(path)) as db, db: db.execute("UPDATE bot_settings SET value='0'")
             calls,fns=self.fixtures()
             self.assertEqual(run_daily(path,datetime(2026,9,24),**fns),'sospeso')
             self.assertFalse(calls)
@@ -66,7 +67,7 @@ class DailyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'catalogo.sqlite';self.setup_db(path)
             calls,fns=self.fixtures();now=datetime(2026,9,24,9)
-            with connect(path) as db:
+            with closing(connect(path)) as db, db:
                 db.execute("INSERT INTO daily_agents VALUES ('2026-09-24','negozio','in corso',1,?,NULL,NULL)",(now.timestamp()+3600,))
             self.assertEqual(run_daily(path,now,**fns),'attesa');self.assertFalse(calls)
 

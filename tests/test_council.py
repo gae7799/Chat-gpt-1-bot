@@ -1,3 +1,4 @@
+from contextlib import closing
 import json
 from pathlib import Path
 import sqlite3
@@ -46,7 +47,7 @@ class CouncilTests(unittest.TestCase):
             photos = root / 'FOTO'; photos.mkdir()
             (photos / 'new.jpg').write_bytes(b'test')
             catalog = root / 'catalogo.sqlite'
-            with sqlite3.connect(catalog) as db:
+            with closing(sqlite3.connect(catalog)) as db, db:
                 db.execute('CREATE TABLE photos(sha TEXT PRIMARY KEY,first_name TEXT,created TEXT DEFAULT CURRENT_TIMESTAMP,status TEXT,product_id TEXT)')
                 db.execute('CREATE TABLE files(path TEXT PRIMARY KEY,sha TEXT,present INTEGER)')
                 db.execute('CREATE TABLE bot_settings(key TEXT PRIMARY KEY,value TEXT NOT NULL)')
@@ -56,7 +57,7 @@ class CouncilTests(unittest.TestCase):
             result = process_next(catalog, photos, analyzer=lambda *args: sample(True),
                                   key_loader=lambda: ('openai','sk-fake'))
             self.assertEqual(result[0], 'analyzed')
-            with sqlite3.connect(catalog) as db:
+            with closing(sqlite3.connect(catalog)) as db, db:
                 self.assertEqual(db.execute('SELECT ai_recommended FROM photos').fetchone()[0], 0)
                 self.assertEqual(db.execute('SELECT COUNT(*) FROM advisor_reviews').fetchone()[0], 4)
                 self.assertEqual(db.execute("SELECT blocks FROM advisor_reviews WHERE role='critica'").fetchone()[0], 1)
