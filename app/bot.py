@@ -174,9 +174,15 @@ def main():
     results = queue.Queue()
     from registro import record, heartbeat, observe, save_texts, logical_review
     db_path = ROOT / 'DATI' / 'catalogo.sqlite'
+    last_logged = {}
     def journal(area, outcome):
+        stamp = time.monotonic()
+        key = (area, outcome)
+        if area.startswith('Errore') and stamp - last_logged.get(key, -300) < 300:
+            return
         try:
             record(db_path, area, 'Bot', outcome)
+            last_logged[key] = stamp
         except (sqlite3.Error, OSError):
             results.put(('error', 'Registro attività non disponibile: controlla accesso e spazio in DATI.'))
     def phase(label):
@@ -187,6 +193,8 @@ def main():
     def worker():
         catalog = None
         last_store_sync = 0
+        last_ai_check = 0
+        last_director_check = 0
         try:
             catalog = Catalog(ROOT)
             journal('Sessione', 'Avvio del bot')
@@ -210,27 +218,31 @@ def main():
                     results.put(('ok', catalog.scan()))
                     if not observe(db_path):
                         results.put(('error', 'Registro: acquisizione del catalogo non riuscita.'))
-                    try:
-                        from gestione_ai import process_next
-                        phase('Controllo coda e disponibilità analisi AI')
-                        outcome = process_next(ROOT / 'DATI' / 'catalogo.sqlite', ROOT / 'FOTO')
-                        phase('Limite giornaliero AI raggiunto' if outcome and outcome[0] == 'limit' else 'Controllo AI completato')
-                    except Exception as exc:
-                        journal('Errore AI', 'Analisi non completata: verificare chiave, credito e collegamento')
-                        results.put(('error', 'Direttore AI: ' + str(exc)))
-                    try:
-                        from direttore_autonomo import schedule_ai_products, publish_due, reconcile_plan, compact_pending_plan
-                        phase('Verifica calendario e pubblicazioni in scadenza')
-                        if time.monotonic() - last_store_sync >= 300:
-                            last_store_sync = time.monotonic()
-                            phase('Allineamento prodotti pubblici con Fourthwall')
-                            reconcile_plan(ROOT / 'DATI' / 'catalogo.sqlite')
-                        compact_pending_plan(ROOT / 'DATI' / 'catalogo.sqlite')
-                        schedule_ai_products(ROOT / 'DATI' / 'catalogo.sqlite')
-                        publish_due(ROOT / 'DATI' / 'catalogo.sqlite')
-                    except Exception as exc:
-                        journal('Errore pubblicazione', 'Operazione non completata: verificare stato del negozio')
-                        results.put(('error', 'Pubblicazione autonoma: ' + str(exc)))
+                    if time.monotonic() - last_ai_check >= 60:
+                        last_ai_check = time.monotonic()
+                        try:
+                            from gestione_ai import process_next
+                            phase('Controllo coda e disponibilità analisi AI')
+                            outcome = process_next(ROOT / 'DATI' / 'catalogo.sqlite', ROOT / 'FOTO')
+                            phase('Limite giornaliero AI raggiunto' if outcome and outcome[0] == 'limit' else 'Controllo AI completato')
+                        except Exception as exc:
+                            journal('Errore AI', 'Analisi non completata: verificare chiave, credito e collegamento')
+                            results.put(('error', 'Direttore AI: ' + str(exc)))
+                    if time.monotonic() - last_director_check >= 60:
+                        last_director_check = time.monotonic()
+                        try:
+                            from direttore_autonomo import schedule_ai_products, publish_due, reconcile_plan, compact_pending_plan
+                            phase('Verifica calendario e pubblicazioni in scadenza')
+                            if time.monotonic() - last_store_sync >= 300:
+                                last_store_sync = time.monotonic()
+                                phase('Allineamento prodotti pubblici con Fourthwall')
+                                reconcile_plan(ROOT / 'DATI' / 'catalogo.sqlite')
+                            compact_pending_plan(ROOT / 'DATI' / 'catalogo.sqlite')
+                            schedule_ai_products(ROOT / 'DATI' / 'catalogo.sqlite')
+                            publish_due(ROOT / 'DATI' / 'catalogo.sqlite')
+                        except Exception as exc:
+                            journal('Errore pubblicazione', 'Operazione non completata: verificare stato del negozio')
+                            results.put(('error', 'Pubblicazione autonoma: ' + str(exc)))
                     if not observe(db_path):
                         results.put(('error', 'Registro: acquisizione delle decisioni non riuscita.'))
                     phase('Ciclo completato; attesa del prossimo controllo')

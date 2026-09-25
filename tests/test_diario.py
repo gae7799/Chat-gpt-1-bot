@@ -21,11 +21,11 @@ class DiaryTests(unittest.TestCase):
             self.assertEqual(save_texts(catalog),1)
             self.assertEqual(len(list(text_folder(catalog).glob('*.txt'))),2)
 
-    def test_review_every_five_minutes_even_across_restart(self):
+    def test_review_every_minute_even_across_restart(self):
         with tempfile.TemporaryDirectory() as folder:
             catalog = Path(folder) / 'catalogo.sqlite'
             moment = datetime(2026,9,20,12,tzinfo=timezone.utc)
             self.assertTrue(logical_review(catalog,moment))
-            self.assertFalse(logical_review(catalog,moment+timedelta(seconds=299)))
-            self.assertTrue(logical_review(catalog,moment+timedelta(seconds=300)))
+            self.assertFalse(logical_review(catalog,moment+timedelta(seconds=59)))
+            self.assertTrue(logical_review(catalog,moment+timedelta(seconds=60)))
             self.assertEqual(save_texts(catalog),2)

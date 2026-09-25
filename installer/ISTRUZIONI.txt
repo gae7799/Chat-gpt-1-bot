@@ -1,4 +1,4 @@
-BEYOND THE NEXT — AGGIORNAMENTI AUTOMATICI 2.0.3
+BEYOND THE NEXT — AGGIORNAMENTI AUTOMATICI 2.0.4
 
 INSTALLAZIONE UNA SOLA VOLTA
 1. Sospendi e chiudi il bot. Chiudi anche la finestra AVVIA.bat.
@@ -6,7 +6,7 @@ INSTALLAZIONE UNA SOLA VOLTA
 2. Estrai lo ZIP e avvia INSTALLA_AGGIORNAMENTO.bat.
 3. Seleziona la cartella Bot-Foto con AVVIA.bat, FOTO e DATI.
 4. Attendi la conferma e riapri il tuo AVVIA.bat.
-5. Verifica Versione 2.0.3 e riattiva la gestione quando vuoi riprenderla.
+5. Verifica Versione 2.0.4 e riattiva la gestione quando vuoi riprenderla.
 
 COME FUNZIONA
 A ogni avvio con AVVIA.bat, prima del bot, il programma controlla la più

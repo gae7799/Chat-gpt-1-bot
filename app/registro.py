@@ -1,6 +1,6 @@
 """Persistent local activity journal; stores outcomes, never prompts or credentials."""
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import json
 import sqlite3
@@ -55,19 +55,36 @@ def save_texts(catalog):
 
 
 def logical_review(catalog, moment=None):
-    """Periodic factual review, without paid AI calls or fabricated thoughts."""
+    """About five factual notes in five minutes, at most 50 per rolling window."""
     moment = moment or datetime.now(timezone.utc)
     with closing(connect(catalog)) as db, db:
         db.execute('BEGIN IMMEDIATE')
         previous = db.execute("SELECT value FROM snapshots WHERE key='review_time'").fetchone()
-        if previous and 0 <= moment.timestamp() - float(previous[0]) < 300:
+        if previous and 0 <= moment.timestamp() - float(previous[0]) < 60:
             return False
+        window_start = (moment - timedelta(minutes=5)).isoformat(timespec='seconds')
+        recent = db.execute("""SELECT COUNT(*) FROM events
+            WHERE area='Diario logico' AND outcome='Riepilogo periodico' AND at>?""",
+            (window_start,)).fetchone()[0]
+        if recent >= 50:
+            return False
+        seq_row = db.execute("SELECT value FROM snapshots WHERE key='review_sequence'").fetchone()
+        seq = int(seq_row[0]) if seq_row else 0
         items = db.execute("SELECT key,value FROM snapshots WHERE key LIKE 'photo:%' OR key LIKE 'plan:%' OR key='setting:director_auto_enabled'").fetchall()
         photos = [json.loads(v) for k,v in items if k.startswith('photo:')]
         plans = [json.loads(v) for k,v in items if k.startswith('plan:')]
         enabled = any(k=='setting:director_auto_enabled' and json.loads(v).get('valore')=='1' for k,v in items)
         awaiting = [p for p in plans if p.get('status')=='Approvata']
         next_date = min((p.get('proposed_at','') for p in awaiting), default='nessuna')
+        role = ('fotografia','marketing','progetto','critica')[seq % 4]
+        specialist = db.execute("SELECT value FROM snapshots WHERE key LIKE 'advisor:%:' || ? ORDER BY key DESC LIMIT 1", (role,)).fetchone()
+        if specialist:
+            review = json.loads(specialist[0])
+            specialist_note = (f'Specialista {role}, valutazione già registrata su {review.get("first_name", "foto")}: '
+                               f'{review.get("action", "nessuna azione proposta")}.'
+                               + (' Criticità bloccante: non proporre la stampa.' if review.get('blocks') else ''))
+        else:
+            specialist_note = f'Specialista {role}: in attesa di una fotografia analizzata; nessun nuovo parere AI.'
         text = (f'Riepilogo automatico basato sui dati registrati, non una nuova analisi AI.\n'
                 f'Gestione autonoma: {"attiva" if enabled else "sospesa o non configurata"}.\n'
                 f'Fotografie nel catalogo storico: {len(photos)}.\n'
@@ -76,12 +93,14 @@ def logical_review(catalog, moment=None):
                 f'Prodotti registrati: {sum(bool(p.get("product_id")) for p in photos)}.\n'
                 f'Proposte approvate in attesa: {len(awaiting)}. Prima data locale: {next_date}.\n'
                 f'Pubblicazioni registrate: {sum(p.get("status")=="Pubblicata" for p in plans)}.\n'
+                f'{specialist_note}\n'
                 'Prossimo controllo: nuove foto, coda AI e scadenze del calendario.\n'
                 'Se i dati non cambiano, resto in attesa: nessuna nuova valutazione artistica viene inventata.\n'
                 'Questo riepilogo non verifica lo shop pubblico e non pubblica prodotti.')
         db.execute('INSERT INTO events(at,area,subject,outcome,details) VALUES (?,?,?,?,?)',
                    (moment.isoformat(timespec='seconds'),'Diario logico','Stato del lavoro','Riepilogo periodico',text))
         db.execute("INSERT OR REPLACE INTO snapshots VALUES ('review_time',?)",(str(moment.timestamp()),))
+        db.execute("INSERT OR REPLACE INTO snapshots VALUES ('review_sequence',?)",(str(seq + 1),))
     return True
 
 
@@ -192,7 +211,7 @@ def open_registry(parent, catalog):
     ttk.Label(body, text='Registro attività', font=('Segoe UI',20,'bold')).pack(anchor='w')
     status = tk.StringVar(value='Caricamento...')
     ttk.Label(body, textvariable=status, wraplength=1000).pack(anchor='w', pady=8)
-    ttk.Label(body, text='Decisioni e motivazioni registrate; aggiornamento ogni 2 secondi. Orari UTC.').pack(anchor='w')
+    ttk.Label(body, text='Circa 5 riepiloghi in 5 minuti (massimo 50 in 5 minuti); le azioni reali sono sempre registrate. Orari UTC.').pack(anchor='w')
     search = tk.StringVar()
     controls = ttk.Frame(body); controls.pack(fill='x', pady=8)
     ttk.Label(controls, text='Cerca:').pack(side='left')
@@ -234,7 +253,7 @@ def open_registry(parent, catalog):
                 term = search.get().strip()
                 rows = db.execute('''SELECT id,at,area,subject,outcome,details FROM events
                     WHERE instr(lower(subject || ' ' || outcome || ' ' || details || ' ' || area),lower(?))>0
-                    ORDER BY id DESC LIMIT 500''',(term,)).fetchall()
+                    ORDER BY id DESC LIMIT 50''',(term,)).fetchall()
                 live = db.execute('SELECT at,phase FROM live WHERE id=1').fetchone()
             wanted = {str(row[0]) for row in rows}
             for iid in table.get_children():
@@ -246,7 +265,7 @@ def open_registry(parent, catalog):
             order = tuple(str(row[0]) for row in rows)
             if table.get_children() != order: table.set_children('',*order)
             status.set((f'Ultimo segnale: {live[0]} — {live[1]}. ' if live else 'Nessun segnale registrato. ') +
-                       f'{len(rows)} eventi visualizzati (massimo 500); esportazione dello storico completo.')
+                       f'{len(rows)} eventi visualizzati (massimo 50); esportazione dello storico completo.')
         except sqlite3.Error:
             status.set('Registro temporaneamente occupato: nuovo tentativo tra 2 secondi.')
         timer = window.after(2000,refresh)
