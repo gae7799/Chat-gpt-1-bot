@@ -4,7 +4,7 @@ Applicazione Windows per gestire il catalogo fotografico Fourthwall, l'analisi O
 
 ## Installazione
 
-Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.0.6, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
+Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.0.7, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
 
 ## Aggiornamenti
 
@@ -42,3 +42,9 @@ Durante l’attività il bot controlla FOTO ogni 15 secondi; la coda AI e il cal
 Il diario ha un ciclo separato dalle chiamate a Fourthwall e OpenAI, con riprova breve se il registro è momentaneamente occupato. Ogni voce descrive la lettura dei dati, il risultato, il parere consultato e le ultime azioni effettive senza presentare un riepilogo come nuova analisi AI.
 
 Il registro attività mostra la colonna **Chi** con il componente che ha emesso la voce. Questo campo è presente anche nei TXT e nel JSON; per eventi creati prima della versione 2.0.6 mostra “Origine non registrata”. La prima apertura migra automaticamente il database e riesporta gradualmente i vecchi TXT con tale indicazione.
+
+## Studio marketing continuo
+
+Mettere documenti in formato `.txt` o `.md` con testo UTF-8 nella cartella `DOCUMENTI_MARKETING` accanto a `FOTO` e `DATI`. Il bot crea la cartella da solo e la controlla circa ogni minuto mentre è aperto: fino a 25 documenti e 128 KiB ciascuno. In **Quattro specialisti** premere **Studio marketing e documenti**, oppure premere **Studio marketing** nella finestra principale. I rapporti locali sono in `DATI/RAPPORTI_MARKETING/rapporto-attuale.html`, `.txt` e `.json`; il registro attribuisce ogni aggiornamento effettivo allo **Specialista marketing**. File non leggibili o formati diversi da TXT/MD vengono segnalati come non letti.
+
+Il rapporto contiene estratti dei documenti, eventuali fonti citate nella ricerca di mercato giornaliera, stato del prodotto nel catalogo Fourthwall verificato e i pareri marketing già registrati per ogni foto. I collegamenti tra documento e opera mostrano solo parole specifiche in comune con il titolo, tema e descrizione della foto: sono spunti editoriali, non prove di domanda o vendite. Per foto storiche prive di metadati descrittivi i collegamenti possono mancare. Questa rilettura locale non invia documenti a OpenAI e non effettua nuove chiamate API; la ricerca esterna giornaliera mantiene i propri limiti e il proprio costo a consumo. Non modifica prezzi, non pubblica e non spende in pubblicità (budget 0 €).

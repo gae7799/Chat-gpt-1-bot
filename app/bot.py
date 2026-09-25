@@ -151,8 +151,9 @@ def main():
     ttk.Button(tools_row, text='Quattro specialisti', command=lambda:open_council(root, ROOT / 'DATI' / 'catalogo.sqlite')).pack(side='left', padx=8)
     from openai_vision import open_setup
     ttk.Button(tools_row, text='Collega OpenAI', command=lambda:open_setup(root)).pack(side='left', padx=8)
-    from analisi_giornaliera import open_report
+    from analisi_giornaliera import open_report, open_marketing_report
     ttk.Button(tools_row, text='Rapporto giornaliero', command=lambda:open_report(root, ROOT / 'DATI' / 'catalogo.sqlite')).pack(side='left', padx=8)
+    ttk.Button(tools_row, text='Studio marketing', command=lambda:open_marketing_report(root, ROOT / 'DATI' / 'catalogo.sqlite')).pack(side='left', padx=8)
     def update_status():
         path = ROOT / 'DATI' / 'AGGIORNAMENTI' / 'stato.txt'
         text = path.read_text(encoding='utf-8') if path.exists() else 'Avvia con AVVIA.bat per controllare gli aggiornamenti.'
@@ -226,6 +227,15 @@ def main():
                         journal('Analisi giornaliera', 'Rapporto non aggiornato: controllare DATI e connessione')
                     stop.wait(60)
             threading.Thread(target=daily_worker, daemon=True).start()
+            def marketing_worker():
+                from analisi_giornaliera import marketing_continuo
+                while not stop.is_set():
+                    try:
+                        marketing_continuo(db_path)
+                    except (sqlite3.Error, OSError, ValueError):
+                        journal('Studio marketing', 'Rapporto non aggiornato: controllare DATI e DOCUMENTI_MARKETING')
+                    stop.wait(60)
+            threading.Thread(target=marketing_worker, daemon=True).start()
             def diary_worker():
                 next_note = time.monotonic()
                 while not stop.is_set():

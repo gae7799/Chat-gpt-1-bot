@@ -188,6 +188,9 @@ def open_council(parent, db_path):
     table.bind('<<TreeviewSelect>>', selected)
     controls = ttk.Frame(body); controls.pack(fill='x')
     ttk.Button(controls, text='Aggiorna', command=refresh).pack(side='left')
+    from analisi_giornaliera import open_marketing_report
+    ttk.Button(controls, text='Studio marketing e documenti',
+               command=lambda:open_marketing_report(window, db_path)).pack(side='left', padx=8)
     ttk.Button(controls, text='Riprova analisi', command=retry).pack(side='left', padx=8)
     window.protocol('WM_DELETE_WINDOW', close)
     refresh()
