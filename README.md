@@ -4,7 +4,7 @@ Applicazione Windows per gestire il catalogo fotografico Fourthwall, l'analisi O
 
 ## Installazione
 
-Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.0.8, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
+Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.1.0, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
 
 ## Aggiornamenti
 
@@ -48,3 +48,19 @@ Il registro attività mostra la colonna **Chi** con il componente che ha emesso 
 Mettere documenti in formato `.txt` o `.md` con testo UTF-8 nella cartella `DOCUMENTI_MARKETING` accanto a `FOTO` e `DATI`. Il bot crea la cartella da solo e la controlla circa ogni minuto mentre è aperto: fino a 25 documenti e 128 KiB ciascuno. In **Quattro specialisti** premere **Studio marketing e documenti**, oppure premere **Studio marketing** nella finestra principale. I rapporti locali sono in `DATI/RAPPORTI_MARKETING/rapporto-attuale.html`, `.txt` e `.json`; il registro attribuisce ogni aggiornamento effettivo allo **Specialista marketing**. File non leggibili o formati diversi da TXT/MD vengono segnalati come non letti.
 
 Il rapporto contiene estratti dei documenti, eventuali fonti citate nella ricerca di mercato giornaliera, stato del prodotto nel catalogo Fourthwall verificato e i pareri marketing già registrati per ogni foto. I collegamenti tra documento e opera mostrano solo parole specifiche in comune con il titolo, tema e descrizione della foto: sono spunti editoriali, non prove di domanda o vendite. Per foto storiche prive di metadati descrittivi i collegamenti possono mancare. Questa rilettura locale non invia documenti a OpenAI e non effettua nuove chiamate API; la ricerca esterna giornaliera mantiene i propri limiti e il proprio costo a consumo. Non modifica prezzi, non pubblica e non spende in pubblicità (budget 0 €).
+
+## Presidente — versione 2.1.0
+
+Il pulsante **Presidente** apre lo stato del coordinatore, le decisioni e gli incarichi. Con gestione autonoma attiva, il Presidente attende il rapporto giornaliero (oppure una fase fallita che abbia esaurito i due tentativi) e consulta catalogo, pareri dei quattro specialisti, ricerca di mercato, proposta editoriale e ultima decisione. L'analisi usa i testi disponibili: non rivaluta direttamente le immagini. Il contesto inviato è limitato e il rapporto indica le fonti escluse.
+
+- **GPT-6 Sol**: massimo un tentativo per giorno locale, fino a 4.000 token di output, inclusi quelli di ragionamento.
+- **GPT-6 Astra**: massimo un tentativo per settimana ISO di calendario, fino a 6.000 token di output, dopo una valutazione quotidiana riuscita.
+- Le quote persistono dopo il riavvio e comprendono gli errori. Nessun tentativo a pagamento viene ripetuto nello stesso periodo; un'esecuzione interrotta è segnalata dopo 20 minuti. I periodi sono di calendario: domenica e lunedì appartengono a settimane diverse.
+- Queste richieste API sono separate dalle cinque analisi fotografiche giornaliere e dai rapporti giornalieri. Servono credito API e accesso ai modelli con la chiave salvata; un modello non accessibile produce una diagnosi, senza sostituzioni automatiche.
+- **Sospendi Presidente** ferma le nuove valutazioni; sospendere la gestione autonoma ferma anche il Presidente. Una richiesta già inviata può terminare.
+
+Ogni decisione include sintesi, dati mancanti e fino a cinque incarichi, con destinatario, fotografia quando pertinente, fonti, motivazione e criterio di completamento. Gli ID di fonti e fotografie sono verificati prima di registrare gli incarichi. Gli incarichi marketing vengono consultati dalla successiva ricerca giornaliera; quelli del direttore dalla successiva proposta editoriale; gli incarichi pertinenti entrano nelle successive analisi fotografiche. **Consultato** indica che un componente ha prodotto un risultato dopo aver letto l'incarico: non certifica che l'azione suggerita sia completata. Le opere storiche non vengono rianalizzate automaticamente per questi incarichi.
+
+Il Presidente produce e distribuisce priorità consultive. Le pubblicazioni continuano tramite il calendario già autorizzato; non è introdotta una nuova funzione per cambiare prezzi o acquistare pubblicità. Budget pubblicitario: 0 €. I documenti grezzi della cartella DOCUMENTI_MARKETING restano locali; il Presidente riceve i rapporti dei servizi e i metadati del catalogo.
+
+Decisioni, contesto e incarichi sono persistenti nel database locale; le ultime 30 valutazioni e gli ultimi 150 incarichi sono esportati in **DATI/PRESIDENTE/rapporto.html**, **rapporto.txt** e **rapporto.json**. Il registro mostra il modello usato, l'inizio, l'esito e gli incarichi consultati. Il database conserva anche lo storico precedente ai limiti dell'esportazione.

@@ -89,7 +89,7 @@ def _output_text(response):
     return '\n'.join(part['text'] for part in final_parts(response))
 
 
-def analyze_photo(path, key, caller=_call):
+def analyze_photo(path, key, caller=_call, president_brief=None):
     path = Path(path)
     if not path.is_file() or path.suffix.lower() not in ('.jpg', '.jpeg', '.png'):
         raise RuntimeError('La fotografia deve essere JPG o PNG.')
@@ -118,6 +118,10 @@ def analyze_photo(path, key, caller=_call):
         'se l’opera è abbastanza forte per essere proposta come stampa. Non identificare persone reali. '
         + council_instructions()
     )
+    if president_brief:
+        prompt += ('\nIncarichi del Presidente da valutare criticamente durante questa analisi. '
+                   'Sono proposte: non dichiarare eseguite azioni esterne e mantieni il veto del critico.\n'
+                   + json.dumps(president_brief, ensure_ascii=False))
     payload = {
         'model': MODEL,
         'input': [{'role': 'user', 'content': [
@@ -145,7 +149,7 @@ def open_setup(parent):
     from tkinter import ttk, messagebox
     win = tk.Toplevel(parent)
     win.title('Collega OpenAI')
-    win.geometry('620x330')
+    win.geometry('620x380')
     body = ttk.Frame(win, padding=18); body.pack(fill='both', expand=True)
     ttk.Label(body, text='Intelligenza visiva OpenAI', font=('Segoe UI', 17, 'bold')).pack(anchor='w')
     state = tk.StringVar(value='La chiave API è separata dall’abbonamento ChatGPT e resta sul tuo PC.')
@@ -174,5 +178,7 @@ def open_setup(parent):
     actions = ttk.Frame(body); actions.pack(anchor='w')
     ttk.Button(actions, text='Verifica e salva', command=save).pack(side='left')
     ttk.Button(actions, text='Rimuovi chiave', command=forget).pack(side='left', padx=8)
-    ttk.Label(body, text='Limite del bot: massimo 5 nuove analisi al giorno. Pubblicità: 0 €.',
+    ttk.Label(body, text='Foto: massimo 5 nuove analisi al giorno. Pubblicità: 0 €.',
               font=('Segoe UI', 9, 'bold')).pack(anchor='w', pady=(18, 0))
+    ttk.Label(body, text='Presidente: fino a 1 richiesta Sol al giorno e 1 Astra alla settimana.\n'
+              'Rapporti giornalieri e Presidente hanno quote API separate dalle foto.',wraplength=570).pack(anchor='w',pady=6)

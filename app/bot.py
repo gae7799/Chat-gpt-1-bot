@@ -154,6 +154,11 @@ def main():
     from analisi_giornaliera import open_report, open_marketing_report
     ttk.Button(tools_row, text='Rapporto giornaliero', command=lambda:open_report(root, ROOT / 'DATI' / 'catalogo.sqlite')).pack(side='left', padx=8)
     ttk.Button(tools_row, text='Studio marketing', command=lambda:open_marketing_report(root, ROOT / 'DATI' / 'catalogo.sqlite')).pack(side='left', padx=8)
+    from consiglio_agenti import open_president
+    presidency_row = ttk.Frame(frame)
+    presidency_row.pack(fill='x', pady=(0, 8))
+    ttk.Button(presidency_row, text='Presidente', command=lambda:open_president(root, ROOT / 'DATI' / 'catalogo.sqlite')).pack(side='left', padx=8)
+    ttk.Label(presidency_row, text='Sol quotidiano · Astra settimanale · Decisioni e incarichi registrati').pack(side='left')
     def update_status():
         path = ROOT / 'DATI' / 'AGGIORNAMENTI' / 'stato.txt'
         text = path.read_text(encoding='utf-8') if path.exists() else 'Avvia con AVVIA.bat per controllare gli aggiornamenti.'
@@ -236,6 +241,20 @@ def main():
                         journal('Studio marketing', 'Rapporto non aggiornato: controllare DATI e DOCUMENTI_MARKETING')
                     stop.wait(60)
             threading.Thread(target=marketing_worker, daemon=True).start()
+            def president_worker():
+                from consiglio_agenti import run_president
+                previous = None
+                while not stop.is_set():
+                    try:
+                        outcome = run_president(db_path)
+                        if outcome != previous:
+                            record(db_path, 'Presidente', 'Coordinamento', outcome,
+                                   'Apri Presidente per decisioni, fonti e incarichi.', actor='Coordinatore del Presidente')
+                            previous = outcome
+                    except (sqlite3.Error, OSError, ValueError):
+                        journal('Errore Presidente', 'Coordinamento non disponibile: controllare DATI')
+                    stop.wait(60)
+            threading.Thread(target=president_worker, daemon=True).start()
             def diary_worker():
                 next_note = time.monotonic()
                 while not stop.is_set():

@@ -59,7 +59,12 @@ def process_next(db_path, photos_root, analyzer=None, key_loader=None):
     from registro import observe
     observe(db_path)
     try:
-        result = validate(analyzer(Path(photos_root) / rel, pair[1]))
+        from consiglio_agenti import president_brief, president_consulted
+        tasks = president_brief(db_path, sha=sha)
+        if analyzer is analyze_photo:
+            result = validate(analyzer(Path(photos_root) / rel, pair[1], president_brief=tasks))
+        else:
+            result = validate(analyzer(Path(photos_root) / rel, pair[1]))
     except Exception:
         db = _connect(db_path)
         try:
@@ -78,5 +83,7 @@ def process_next(db_path, photos_root, analyzer=None, key_loader=None):
            int(result['recommended']), result['reason'], status, sha))
         db.commit()
     finally: db.close()
+    if analyzer is analyze_photo:
+        president_consulted(db_path, tasks)
     observe(db_path)
     return ('analyzed', rel, result)
