@@ -158,6 +158,8 @@ def main():
     presidency_row = ttk.Frame(frame)
     presidency_row.pack(fill='x', pady=(0, 8))
     ttk.Button(presidency_row, text='Presidente', command=lambda:open_president(root, ROOT / 'DATI' / 'catalogo.sqlite')).pack(side='left', padx=8)
+    from consiglio_agenti import open_chat
+    ttk.Button(presidency_row, text='Parla con l’agente', command=lambda:open_chat(root, ROOT / 'DATI' / 'catalogo.sqlite')).pack(side='left', padx=8)
     ttk.Label(presidency_row, text='Sol quotidiano · Astra settimanale · Decisioni e incarichi registrati').pack(side='left')
     def update_status():
         path = ROOT / 'DATI' / 'AGGIORNAMENTI' / 'stato.txt'

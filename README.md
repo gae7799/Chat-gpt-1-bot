@@ -4,7 +4,7 @@ Applicazione Windows per gestire il catalogo fotografico Fourthwall, l'analisi O
 
 ## Installazione
 
-Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.1.0, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
+Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.1.1, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
 
 ## Aggiornamenti
 
@@ -64,3 +64,7 @@ Ogni decisione include sintesi, dati mancanti e fino a cinque incarichi, con des
 Il Presidente produce e distribuisce priorità consultive. Le pubblicazioni continuano tramite il calendario già autorizzato; non è introdotta una nuova funzione per cambiare prezzi o acquistare pubblicità. Budget pubblicitario: 0 €. I documenti grezzi della cartella DOCUMENTI_MARKETING restano locali; il Presidente riceve i rapporti dei servizi e i metadati del catalogo.
 
 Decisioni, contesto e incarichi sono persistenti nel database locale; le ultime 30 valutazioni e gli ultimi 150 incarichi sono esportati in **DATI/PRESIDENTE/rapporto.html**, **rapporto.txt** e **rapporto.json**. Il registro mostra il modello usato, l'inizio, l'esito e gli incarichi consultati. Il database conserva anche lo storico precedente ai limiti dell'esportazione.
+
+## Dialogo con l’agente — versione 2.1.1
+
+Il pulsante **Parla con l’agente** apre una chat. Il bot legge uno stato limitato del catalogo locale, del calendario, del Presidente e gli ultimi eventi non periodici del registro; mantiene la cronologia delle domande e risposte nel database locale e nel file **DATI/CHAT_AGENTE/conversazione.txt**. Invia a OpenAI la domanda, una breve cronologia e quel contesto solo quando premi **Invia**: serve la chiave API, ogni messaggio può costare, e il limite è 20 richieste al giorno. La chat usa GPT-6 Sol e non interviene direttamente su Fourthwall, prezzi o campagne. Le istruzioni contenute nei documenti e nei registri sono trattate come dati. Lo stato `Public` indica visibilità, non disponibilità: per capire perché una stampa appare `Sold Out` occorre verificare disponibilità e varianti in Fourthwall. La colonna **Copie** indica file uguali nella cartella FOTO, non pezzi vendibili.
