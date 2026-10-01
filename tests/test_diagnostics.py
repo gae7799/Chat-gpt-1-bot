@@ -25,6 +25,14 @@ class DiagnosticsTests(unittest.TestCase):
         self.assertIn('Credito',text);self.assertNotIn('SECRET',text)
         self.assertIn('max_tool_calls',http_diagnostic(400,{'param':'max_tool_calls','code':'unsupported_parameter'}))
 
+    def test_429_type_is_recognized_without_raw_error_message(self):
+        case=http_diagnostic(429,{'type':'insufficient_quota','message':'sk-SECRET'})
+        self.assertIn('Quota API insufficiente',case)
+        self.assertNotIn('SECRET',case)
+        self.assertIn('ravvicinate',http_diagnostic(429,{'type':'rate_limit_exceeded'}))
+        self.assertIn('spesa',http_diagnostic(429,{'code':'project_spend_limit_exceeded'}))
+        self.assertIn('non ha specificato',http_diagnostic(429,{}))
+
     def test_truncation_is_specific(self):
         with self.assertRaisesRegex(OpenAIError,'token'):
             _output_text({'status':'incomplete','incomplete_details':{'reason':'max_output_tokens'}})

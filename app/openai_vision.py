@@ -21,11 +21,23 @@ class OpenAIError(RuntimeError):
 def http_diagnostic(status, detail):
     messages = {400:'Richiesta OpenAI non accettata',401:'Chiave OpenAI non valida',
                 403:'Permessi OpenAI insufficienti',404:'Modello non disponibile per questa chiave',
-                429:'Limite o credito OpenAI raggiunto'}
+                429:'Richiesta OpenAI bloccata'}
     reason = messages.get(status, 'Errore del servizio OpenAI') + f' (HTTP {status}).'
     code = detail.get('code') if isinstance(detail, dict) else None
-    if code == 'insufficient_quota': reason += ' Credito o quota API esauriti: controlla la fatturazione API.'
-    elif code == 'rate_limit_exceeded': reason += ' Troppe richieste: attendi prima di riprovare.'
+    category = detail.get('type') if isinstance(detail, dict) else None
+    cause = code or category
+    if status == 429 and cause == 'credit_balance_exhausted':
+        reason += ' Credito prepagato API esaurito: controlla il saldo API.'
+    elif status == 429 and cause in ('organization_spend_limit_exceeded','project_spend_limit_exceeded'):
+        reason += ' Limite di spesa API raggiunto: controlla i limiti di organizzazione e progetto.'
+    elif status == 429 and cause == 'organization_usage_limit_exceeded':
+        reason += ' Limite di utilizzo API raggiunto: controlla i limiti della tua organizzazione.'
+    elif status == 429 and cause == 'insufficient_quota':
+        reason += ' Quota API insufficiente: controlla Credito, fatturazione e limiti API.'
+    elif status == 429 and cause == 'rate_limit_exceeded':
+        reason += ' Troppe richieste ravvicinate: attendi prima di riprovare.'
+    elif status == 429 and not cause:
+        reason += ' OpenAI non ha specificato la causa: controlla saldo e limiti API; se sono disponibili, riprova più tardi.'
     elif code == 'model_not_found': reason += ' Il modello configurato non è accessibile.'
     elif code in ('unsupported_parameter','unsupported_value','invalid_value'):
         reason += ' Un parametro non è supportato o ha un valore non valido.'
