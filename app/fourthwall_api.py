@@ -132,11 +132,33 @@ def set_product_available(user,password,product_id,available):
     return _json_call('PUT','/products/'+parse.quote(product_id,safe='')+'/availability',
                       user,password,{'available':bool(available)})
 
+def get_product(user,password,product_id):
+    if not isinstance(product_id,str) or not product_id or any(c in product_id for c in '/?#'):
+        raise ApiError('ID prodotto non valido.')
+    data=_json_call('GET','/products/'+parse.quote(product_id,safe=''),user,password)
+    if not isinstance(data,dict) or not isinstance(data.get('state'),dict) or not isinstance(data.get('access'),dict):
+        raise ApiError('Stato del prodotto Fourthwall non riconosciuto.')
+    return data
+
+def list_products(user,password,max_pages=10):
+    """Read the full shop catalog or fail closed before a duplicate-sensitive action."""
+    found=[]
+    for page in range(max_pages):
+        data=_json_call('GET',f'/products?page={page}&size=100',user,password)
+        rows=data.get('results') if isinstance(data,dict) else None
+        pages=data.get('totalPages') if isinstance(data,dict) else None
+        if not isinstance(rows,list) or not isinstance(pages,int) or pages<0 or pages>max_pages:
+            raise ApiError('Catalogo Fourthwall non completo: creazione e pubblicazione sospese.')
+        if pages==0 and not rows: return []
+        found.extend(rows)
+        if page+1>=pages: return found
+    raise ApiError('Catalogo Fourthwall troppo grande per il controllo duplicati.')
+
 def get_product_access(user,password,product_id):
     """Read the storefront visibility, not the independent sold-out flag."""
     if not isinstance(product_id,str) or not product_id or any(c in product_id for c in '/?#'):
         raise ApiError('ID prodotto non valido.')
-    data = _json_call('GET','/products/'+parse.quote(product_id,safe=''),user,password)
+    data = get_product(user,password,product_id)
     access = data.get('access') if isinstance(data,dict) else None
     state = access.get('type') if isinstance(access,dict) else None
     if state not in ('PUBLIC','HIDDEN','PRIVATE','ARCHIVED'):
@@ -152,6 +174,16 @@ def set_product_public(user,password,product_id):
     access = data.get('access') if isinstance(data,dict) else None
     if not isinstance(access,dict) or access.get('type') != 'PUBLIC':
         raise ApiError('Fourthwall non ha confermato la pubblicazione; verifica il prodotto.')
+    return data
+
+def set_product_hidden(user,password,product_id):
+    if not isinstance(product_id,str) or not product_id or any(c in product_id for c in '/?#'):
+        raise ApiError('ID prodotto non valido.')
+    data=_json_call('PUT','/products/'+parse.quote(product_id,safe='')+'/state',
+                    user,password,{'state':'HIDDEN'})
+    access=data.get('access') if isinstance(data,dict) else None
+    if not isinstance(access,dict) or access.get('type')!='HIDDEN':
+        raise ApiError('Fourthwall non ha confermato la rimozione del doppione dalla vetrina.')
     return data
 
 def create_collection(user,password,name,description):

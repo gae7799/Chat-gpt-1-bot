@@ -1,13 +1,16 @@
 """Fourthwall hidden-draft creation, manual and autonomous queue."""
 import queue, sqlite3, threading, time
 from pathlib import Path
-from fourthwall_api import ApiError,list_templates,template_details,upload_image,create_hidden_draft
+from fourthwall_api import ApiError,list_templates,template_details,upload_image,create_hidden_draft,list_products
 from connessione import Vault
 
 AUTO_INTERVAL = 20
 RETRY_SECONDS = 300
 
 BRAND_NAME = 'Beyond The Next'
+
+class CreationNeedsReview(ApiError):
+    """The shop may already contain an offer; an automatic retry could duplicate it."""
 
 def _title(filename):
     text=Path(filename).stem.replace('_',' ').strip()
@@ -48,9 +51,12 @@ def _create_one(db_path,photos_root,sha,rel,template_id,margin):
     if not pair: raise ApiError('Credenziali Fourthwall non trovate: usa Collega e salva.')
     db=_db_connect(db_path)
     try:
-        row=db.execute('SELECT image_id,product_id,ai_title,ai_description FROM photos WHERE sha=?',(sha,)).fetchone()
+        db.execute('BEGIN IMMEDIATE')
+        row=db.execute('SELECT image_id,product_id,ai_title,ai_description,status FROM photos WHERE sha=?',(sha,)).fetchone()
         if not row: raise ApiError('Fotografia non presente nel catalogo.')
         if row[1]: return ('already',rel,row[1])
+        if row[4] in ('Creazione da verificare su Fourthwall','Creazione bozza in corso'):
+            raise CreationNeedsReview('Possibile bozza già creata: controlla Fourthwall prima di riprovare questa foto.')
         image_id=row[0]; ai_title=row[2]; ai_description=row[3]
         db.execute('UPDATE photos SET status=? WHERE sha=?',('Caricamento su Fourthwall...',sha)); db.commit()
     finally: db.close()
@@ -63,7 +69,34 @@ def _create_one(db_path,photos_root,sha,rel,template_id,margin):
         finally: db.close()
         observe(db_path)
     _,region=template_details(template_id)
-    product_id=create_hidden_draft(*pair,template_id,region,image_id,ai_title or _title(rel),ai_description or _description(),margin)
+    title=ai_title or _title(rel)
+    matches=[p for p in list_products(*pair) if isinstance(p,dict) and
+             (p.get('name') or '').strip().casefold()==title.strip().casefold() and
+             (p.get('access') or {}).get('type')!='ARCHIVED']
+    if matches:
+        db=_db_connect(db_path)
+        try:
+            db.execute('UPDATE photos SET status=? WHERE sha=?',('Creazione da verificare su Fourthwall',sha))
+            _log(db,sha,'duplicate_draft','blocked',f'{title}: scheda già presente; nessuna nuova bozza.'); db.commit()
+        finally: db.close()
+        raise CreationNeedsReview(f'{title}: scheda già presente su Fourthwall; nessuna nuova bozza creata.')
+    db=_db_connect(db_path)
+    try:
+        db.execute('BEGIN IMMEDIATE')
+        row=db.execute('SELECT product_id,status FROM photos WHERE sha=?',(sha,)).fetchone()
+        if not row or row[0] or row[1] in ('Creazione bozza in corso','Creazione da verificare su Fourthwall'):
+            raise CreationNeedsReview('Bozza già creata o da verificare; nessun secondo caricamento.')
+        db.execute('UPDATE photos SET status=? WHERE sha=?',('Creazione bozza in corso',sha)); db.commit()
+    finally: db.close()
+    try:
+        product_id=create_hidden_draft(*pair,template_id,region,image_id,title,ai_description or _description(),margin)
+    except Exception:
+        db=_db_connect(db_path)
+        try:
+            db.execute('UPDATE photos SET status=? WHERE sha=?',('Creazione da verificare su Fourthwall',sha))
+            _log(db,sha,'create_hidden_draft','uncertain','Risposta non confermata: verifica sul negozio prima di ritentare.'); db.commit()
+        finally: db.close()
+        raise CreationNeedsReview('Creazione non confermata: controlla Fourthwall prima di ritentare.') from None
     db=_db_connect(db_path)
     try:
         db.execute('''UPDATE photos SET image_id=?,product_id=?,template_id=?,status=?,retry_count=0,next_retry=0,metadata_version=1 WHERE sha=?''',
@@ -156,6 +189,7 @@ def mount(parent,root,table,db_path,photos_root):
             condition="AND p.ai_status='Analizzata' AND COALESCE(p.ai_recommended,0)=1" if autonomous else ''
             rows=db.execute(f'''SELECT p.sha,f.path FROM photos p JOIN files f ON p.sha=f.sha
               WHERE f.present=1 AND (p.product_id IS NULL OR p.product_id='') AND COALESCE(p.next_retry,0)<=?
+              AND p.status NOT IN ('Creazione bozza in corso','Creazione da verificare su Fourthwall')
               {condition} ORDER BY p.created,f.path''',(now,)).fetchall()
             for sha,rel in rows:
                 if Path(rel).suffix.lower() in ('.jpg','.jpeg','.png'): return sha,rel,template_id,value
@@ -167,6 +201,7 @@ def mount(parent,root,table,db_path,photos_root):
             if not template_id: raise ApiError('Modello automatico mancante.')
             return _create_one(db_path,photos_root,sha,rel,template_id,value)
         except Exception as exc:
+            if isinstance(exc,CreationNeedsReview): raise
             message=str(exc) if isinstance(exc,ApiError) else 'Operazione automatica non riuscita.'
             db=_db_connect(db_path)
             try:

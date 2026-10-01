@@ -192,6 +192,8 @@ def main():
         'Limite AI': 'Gestore quota AI',
         'Calendario': 'Direttore autonomo',
         'Errore pubblicazione': 'Direttore autonomo',
+        'Controllo Fourthwall': 'Supervisore negozio',
+        'Errore Fourthwall': 'Supervisore negozio',
         'Rapporto giornaliero': 'Coordinatore rapporto giornaliero',
         'Analisi giornaliera': 'Coordinatore rapporto giornaliero',
     }
@@ -213,6 +215,8 @@ def main():
     def worker():
         catalog = None
         last_store_sync = 0
+        last_shop_check = 0
+        previous_shop_issues = None
         last_ai_check = 0
         last_director_check = 0
         last_photo_count = None
@@ -328,6 +332,24 @@ def main():
                         except Exception as exc:
                             journal('Errore pubblicazione', 'Operazione non completata: verificare stato del negozio')
                             results.put(('error', 'Pubblicazione autonoma: ' + str(exc)))
+                    if time.monotonic() - last_shop_check >= 300:
+                        last_shop_check = time.monotonic()
+                        try:
+                            from direttore_autonomo import check_public_shop
+                            phase('Verifica disponibilità e doppioni su Fourthwall')
+                            review=check_public_shop(db_path)
+                            issues=tuple(review['issues'])
+                            if review['restored'] or review['hidden_duplicates'] or issues!=previous_shop_issues:
+                                journal('Controllo Fourthwall',
+                                        f"{review['checked']} pubblici controllati; {review['restored']} ripristinati; "
+                                        f"{review['hidden_duplicates']} doppioni storici nascosti",
+                                        'Il controllo usa gli ID del catalogo locale. '
+                                        + ('Problemi: '+'; '.join(issues[:10]) if issues else 'Nessun problema rilevato.'))
+                            previous_shop_issues=issues
+                            if issues: results.put(('error','Fourthwall: '+issues[0]))
+                        except Exception as exc:
+                            journal('Errore Fourthwall','Controllo disponibilità e doppioni non completato',str(exc))
+                            results.put(('error','Controllo Fourthwall: '+str(exc)))
                     if not observe(db_path):
                         results.put(('error', 'Registro: acquisizione delle decisioni non riuscita.'))
                     phase('Ciclo completato; attesa del prossimo controllo')

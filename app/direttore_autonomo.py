@@ -194,7 +194,81 @@ def reconcile_plan(db_path, product_getter=None, credential_loader=None):
     return found
 
 
-def publish_due(db_path, now=None, product_setter=None, collection_setter=None, credential_loader=None, product_getter=None):
+def check_public_shop(db_path, credential_loader=None, catalog_loader=None,
+                      product_loader=None, availability_setter=None, hide_setter=None):
+    """Keep linked public offers purchasable; hide only verified legacy IDs of the same photo."""
+    from fourthwall_api import get_product, list_products, set_product_available, set_product_hidden
+    from connessione import Vault
+    credential_loader=credential_loader or (lambda: Vault().load())
+    pair=credential_loader()
+    if not pair: return {'checked':0,'restored':0,'hidden_duplicates':0,'issues':['Fourthwall non collegato']}
+    catalog_loader=catalog_loader or list_products
+    product_loader=product_loader or get_product
+    availability_setter=availability_setter or set_product_available
+    hide_setter=hide_setter or set_product_hidden
+    with closing(_connect(db_path)) as db:
+        cols={row[1] for row in db.execute('PRAGMA table_info(photos)')}
+        legacy='legacy_product_id' if 'legacy_product_id' in cols else "''"
+        replacement='replacement_product_id' if 'replacement_product_id' in cols else "''"
+        formatted='formatted_product_id' if 'formatted_product_id' in cols else "''"
+        photos=db.execute(f'''SELECT sha,first_name,product_id,{legacy},{replacement},{formatted}
+                             FROM photos WHERE COALESCE(product_id,'')<>'' ''').fetchall()
+    remote=catalog_loader(*pair)
+    by_id={p.get('id') or p.get('productId'):p for p in remote if isinstance(p,dict)}
+    outcome={'checked':0,'restored':0,'hidden_duplicates':0,'issues':[]}
+    def event(kind,message):
+        with closing(_connect(db_path)) as db,db:
+            db.execute("INSERT INTO director_runs(mode,outcome,message) VALUES ('shop_check',?,?)",(kind,message[:500]))
+        observe(db_path)
+    for sha,name,primary,*older in photos:
+        linked=[p for p in dict.fromkeys([primary,*older]) if p]
+        current_record=by_id.get(primary,{})
+        title=(current_record.get('name') or '').strip().casefold()
+        if title:
+            other_public=[p.get('id') or p.get('productId') for p in remote if isinstance(p,dict)
+                          and (p.get('name') or '').strip().casefold()==title
+                          and (p.get('access') or {}).get('type')=='PUBLIC'
+                          and (p.get('id') or p.get('productId')) not in linked]
+            if other_public:
+                outcome['issues'].append(f'{name}: altra scheda pubblica con stesso titolo ({other_public[0]}); verificare immagine.')
+        public=[p for p in linked if by_id.get(p,{}).get('access',{}).get('type')=='PUBLIC']
+        if len(public)>1 and primary in public:
+            for duplicate in public:
+                if duplicate==primary: continue
+                # Never hide a product unless the local photo links it as its own older offer.
+                hide_setter(*pair,duplicate)
+                if product_loader(*pair,duplicate)['access']['type']!='HIDDEN':
+                    raise RuntimeError(f'{name}: doppione {duplicate} ancora pubblico.')
+                outcome['hidden_duplicates']+=1
+                event('duplicate_hidden',f'{name}: vecchia scheda {duplicate} nascosta; attiva {primary}.')
+        elif public and primary not in public:
+            outcome['issues'].append(f'{name}: vecchia scheda pubblica {public[0]}; nuova bozza lasciata nascosta.')
+        if primary not in by_id: outcome['issues'].append(f'{name}: prodotto {primary} non presente nel catalogo API.'); continue
+        item=product_loader(*pair,primary)
+        if item['access'].get('type')!='PUBLIC': continue
+        outcome['checked']+=1
+        state=item['state'].get('type')
+        if state=='AVAILABLE': continue
+        if state!='SOLD_OUT':
+            outcome['issues'].append(f'{name}: stato vendita sconosciuto ({state}); nessuna modifica.'); continue
+        variants=item.get('variants') or []
+        exhausted=[v for v in variants if isinstance(v,dict) and isinstance(v.get('stock'),dict)
+                   and v['stock'].get('type')=='LIMITED' and v['stock'].get('inStock')==0]
+        if exhausted or not variants:
+            outcome['issues'].append(f'{name}: Sold Out; disponibilità delle varianti da controllare su Fourthwall.')
+            continue
+        availability_setter(*pair,primary,True)
+        current=product_loader(*pair,primary)
+        if current['access'].get('type')!='PUBLIC' or current['state'].get('type')!='AVAILABLE':
+            outcome['issues'].append(f'{name}: ripristino non confermato da Fourthwall.')
+            continue
+        outcome['restored']+=1
+        event('available',f'{name}: era Sold Out; ora PUBLIC e AVAILABLE confermato da Fourthwall.')
+    return outcome
+
+
+def publish_due(db_path, now=None, product_setter=None, collection_setter=None,
+                credential_loader=None, product_getter=None, catalog_loader=None):
     """Publish due approved products only when full autonomy was explicitly enabled."""
     now = now or datetime.now()
     db = _connect(db_path)
@@ -209,13 +283,15 @@ def publish_due(db_path, now=None, product_setter=None, collection_setter=None, 
     if not rows: return 0
     if product_setter is None or credential_loader is None or product_getter is None:
         from connessione import Vault
-        from fourthwall_api import get_product_access, set_product_public, set_collection_available
+        from fourthwall_api import get_product_access, set_product_public, set_collection_available, list_products
+        if product_getter is None and catalog_loader is None: catalog_loader=list_products
         product_setter = product_setter or set_product_public
         collection_setter = collection_setter or set_collection_available
         product_getter = product_getter or get_product_access
         credential_loader = credential_loader or (lambda: Vault().load())
     pair = credential_loader()
     if not pair: raise RuntimeError('Credenziali Fourthwall non trovate.')
+    remote=catalog_loader(*pair) if catalog_loader else None
     published = 0
     def still_enabled():
         with closing(sqlite3.connect(db_path, timeout=15)) as current:
@@ -223,6 +299,18 @@ def publish_due(db_path, now=None, product_setter=None, collection_setter=None, 
             return bool(setting and setting[0] == '1')
     for plan_id, product_id, title in rows:
         if not still_enabled(): break
+        if remote is not None:
+            matches=[p for p in remote if isinstance(p,dict) and
+                     (p.get('id') or p.get('productId'))!=product_id and
+                     (p.get('name') or '').strip().casefold()==title.strip().casefold() and
+                     (p.get('access') or {}).get('type')=='PUBLIC']
+            if matches:
+                with closing(_connect(db_path)) as db, db:
+                    db.execute("UPDATE director_plan SET status='Doppione da verificare' WHERE id=? AND status='Approvata'",(plan_id,))
+                    db.execute("INSERT INTO director_runs(mode,outcome,message) VALUES ('autonomo','duplicate_blocked',?)",
+                               (f'{title}: già pubblica un’altra scheda con questo titolo; prodotto {product_id} non pubblicato.',))
+                observe(db_path)
+                continue
         access = product_getter(*pair, product_id)
         if access == 'PUBLIC':
             _mark_already_public(db_path,plan_id,title)
@@ -240,7 +328,6 @@ def publish_due(db_path, now=None, product_setter=None, collection_setter=None, 
                        (f'Pubblicata: {title}',))
             db.commit()
         finally: db.close()
-        from registro import observe
         observe(db_path)
         published += 1
     if published and collection and collection[0] and collection_setter and still_enabled():

@@ -4,7 +4,7 @@ Applicazione Windows per gestire il catalogo fotografico Fourthwall, l'analisi O
 
 ## Installazione
 
-Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.1.1, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
+Scaricare `AGGIORNA_E_AVVIA.bat` dalla release 2.1.2, copiarlo nella cartella Bot-Foto già in uso e aprirlo con il bot chiuso. Il BAT scarica il pacchetto della versione, verifica SHA-256, installa nella stessa cartella e avvia il bot. In seguito usare sempre `AVVIA.bat`, che controlla le nuove release all’avvio. In alternativa scaricare lo ZIP completo e usare `INSTALLA_AGGIORNAMENTO.bat`.
 
 ## Aggiornamenti
 
@@ -68,3 +68,5 @@ Decisioni, contesto e incarichi sono persistenti nel database locale; le ultime 
 ## Dialogo con l’agente — versione 2.1.1
 
 Il pulsante **Parla con l’agente** apre una chat. Il bot legge uno stato limitato del catalogo locale, del calendario, del Presidente e gli ultimi eventi non periodici del registro; mantiene la cronologia delle domande e risposte nel database locale e nel file **DATI/CHAT_AGENTE/conversazione.txt**. Invia a OpenAI la domanda, una breve cronologia e quel contesto solo quando premi **Invia**: serve la chiave API, ogni messaggio può costare, e il limite è 20 richieste al giorno. La chat usa GPT-6 Sol e non interviene direttamente su Fourthwall, prezzi o campagne. Le istruzioni contenute nei documenti e nei registri sono trattate come dati. Lo stato `Public` indica visibilità, non disponibilità: per capire perché una stampa appare `Sold Out` occorre verificare disponibilità e varianti in Fourthwall. La colonna **Copie** indica file uguali nella cartella FOTO, non pezzi vendibili.
+
+Ogni cinque minuti il supervisore legge visibilità, stato di vendita e varianti dei prodotti collegati al catalogo. Se una scheda `PUBLIC` è `SOLD_OUT` e le varianti non hanno scorte esplicitamente a zero, prova a renderla disponibile e verifica con una seconda lettura. Quando Fourthwall segnala una variante esaurita, registra il problema senza inventare scorte. Una vecchia scheda pubblica collegata alla stessa foto viene nascosta solo quando la scheda attiva è già pubblica. Prima di creare una bozza il bot consulta l'intero catalogo del negozio e blocca i titoli identici; se non conosce l'esito della creazione, sospende i tentativi per evitare doppioni. Prima di pubblicare blocca una seconda scheda pubblica con lo stesso titolo. Il registro segnala i casi dubbi da controllare.
